@@ -410,7 +410,17 @@ function collectTienda() {
 
 // ---------- Paso 2: competencia ----------
 // ---------- Capturas de pantalla ----------
-let shotFor = null, shotFiles = [], shotRows = [];
+let shotFor = null, shotFiles = [], shotRows = [], shotOthers = [], shotStatus = "";
+// Achica la captura (máx. 2200 px de ancho, JPEG) para que la subida sea liviana
+function shrink(file) {
+  return new Promise((ok, ko) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { const k = Math.min(1, 2200 / img.width), c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); ok(c.toDataURL("image/jpeg", 0.85)); };
+    img.onerror = () => ko(new Error("No se pudo abrir la imagen."));
+    img.src = url;
+  });
+}
 function shotPanel() {
   const c = db.chains[shotFor];
   return `<div class="panel" id="shotPanel"><h2>Cargar ${esc(c.name)} con capturas de pantalla</h2>
@@ -419,6 +429,8 @@ function shotPanel() {
     <label class="btn ghost small" for="shotInput" style="cursor:pointer">Elegir capturas</label>
     <input type="file" id="shotInput" accept="image/*" multiple hidden>
     ${shotFiles.length ? `<div class="shots">${shotFiles.map((u, i) => `<img src="${u}" alt="Captura ${i + 1} de ${esc(c.name)}">`).join("")}</div>` : `<p class="note">Todavía no subiste capturas.</p>`}
+    ${shotStatus ? `<p class="msg" style="margin:6px 0 10px">${esc(shotStatus)}</p>` : ""}
+    ${shotOthers.length ? `<p class="note" style="margin:-4px 0 10px">${shotOthers.length} productos leídos no se parecen a los tuyos. <button class="link" id="shotOthers">Mostrarlos también</button></p>` : ""}
     <div class="scroll"><table><thead><tr><th>Producto como figura en la captura</th><th class="n">Precio</th><th></th></tr></thead><tbody>
       ${shotRows.map((r, i) => `<tr><td><input id="sn-${i}" data-sn="${i}" value="${esc(r.name)}" style="width:100%;min-width:220px" aria-label="Nombre del producto ${i + 1}"></td>
         <td class="n"><input type="number" id="sp-${i}" data-sp="${i}" value="${r.price ?? ""}" aria-label="Precio del producto ${i + 1}"></td>
@@ -642,7 +654,7 @@ function bindAdmin() {
   if (adminTab === "competencia") {
     $$("[data-shot]").forEach(b => b.onclick = () => {
       collectCompetencia(); shotFor = +b.dataset.shot;
-      const c = db.chains[shotFor]; shotFiles = []; shotRows = (c.manualCatalog || []).map(x => ({ ...x }));
+      const c = db.chains[shotFor]; shotFiles = []; shotOthers = []; shotStatus = ""; shotRows = (c.manualCatalog || []).map(x => ({ ...x }));
       if (!shotRows.length) shotRows = [{ name: "", price: null }];
       render(); $("#shotPanel").scrollIntoView({ block: "start" });
     });
@@ -652,17 +664,25 @@ function bindAdmin() {
         const files = Array.from(e.target.files);
         files.forEach(f => shotFiles.push(URL.createObjectURL(f)));
         if (!SERVER) { render(); return; }
-        // En Render: el servidor lee el texto de las capturas y completa la lista
-        flash = "Leyendo las capturas…"; render();
-        try {
-          const images = await Promise.all(files.map(f => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); })));
-          const rows = await Remote.ocr(images);
-          shotRows = shotRows.filter(r => r.name.trim() || r.price).concat(rows);
-          if (!shotRows.length) shotRows = [{ name: "", price: null }];
-          flash = rows.length ? `Se leyeron ${rows.length} productos. Revisá nombres y precios antes de usarlos.` : "No se encontraron precios en las capturas. Completá la lista a mano.";
-        } catch (err) { flash = err.message; }
+        // En Render: se achica cada captura y se manda de a una; el servidor lee el texto y arma la lista
+        const rel = r => Math.max(0, ...db.products.map(p => E.similarity(r.name, p.name))) >= 0.3;
+        const seen = new Set(shotRows.map(r => E.norm(r.name)));
+        let found = 0, failed = 0;
+        for (let i = 0; i < files.length; i++) {
+          shotStatus = `Leyendo captura ${i + 1} de ${files.length}…`; render();
+          try {
+            const rows = await Remote.ocr([await shrink(files[i])]);
+            rows.forEach(r => { const k = E.norm(r.name); if (seen.has(k)) return; seen.add(k); found++; (rel(r) ? shotRows : shotOthers).push(r); });
+          } catch (err) { failed++; }
+        }
+        shotRows = shotRows.filter(r => r.name.trim() || r.price);
+        if (!shotRows.length) shotRows = [{ name: "", price: null }];
+        const shown = shotRows.filter(r => r.name.trim()).length;
+        shotStatus = found ? `Se leyeron ${found} productos: ${shown} se parecen a los tuyos${shotOthers.length ? ` y ${shotOthers.length} no (quedaron ocultos)` : ""}. Revisá nombres y precios antes de usarlos.${failed ? ` ${failed} captura${failed === 1 ? "" : "s"} no se pudo leer.` : ""}`
+          : failed ? "No se pudieron leer las capturas. Probá de nuevo en un minuto o con capturas más chicas." : "No se encontraron precios en las capturas. Completá la lista a mano.";
         render();
       };
+      const so = $("#shotOthers"); if (so) so.onclick = () => { collectShots(); shotRows = shotRows.filter(r => r.name.trim()).concat(shotOthers); shotOthers = []; render(); };
       $("#shotAdd").onclick = () => { collectShots(); shotRows.push({ name: "", price: null }); render(); $(`#sn-${shotRows.length - 1}`).focus(); };
       $$("[data-sdel]").forEach(b => b.onclick = () => { collectShots(); shotRows.splice(+b.dataset.sdel, 1); render(); });
       $("#shotCancel").onclick = () => { shotFor = null; render(); };

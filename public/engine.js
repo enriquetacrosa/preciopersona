@@ -108,7 +108,7 @@
       const sameSize = sa && sb && sa.unit === sb.unit && Math.abs(sa.value - sb.value) / sa.value < 0.05;
       let kind = null;
       if (score >= 0.75 && (sameSize || (!sa && !sb))) kind = "mismo";
-      else if (score >= 0.45) kind = "similar";
+      else if (score >= 0.4) kind = "similar";
       if (!kind) return;
       const rank = (kind === "mismo" ? 1 : 0) + score;
       if (!best || rank > best.rank) {
