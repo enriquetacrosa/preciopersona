@@ -355,7 +355,7 @@ const lightHtml = ev => `<span class="light l-${ev.light}">${LIGHT[ev.light]}</s
 const LIGHT_TXT = { verde: "Competitivo y con margen", amarillo: "Más caro que la competencia, o la competencia vende por debajo de tu piso", rojo: "Por debajo del piso: perdés margen" };
 const BASIS = { zona: "la más barata de la zona", promedio: "promedio de la competencia (no hay cadenas en esta zona)", propio: "tu precio actual (no se encontró competencia)" };
 const STEPS = [["tienda", "Tu tienda"], ["competencia", "Competencia"], ["sugeridos", "Precios de venta"]];
-const TABS = [["panel", "Panel"], ["tienda", "Productos"], ["competencia", "Competencia"], ["sugeridos", "Precios de venta"], ["clientes", "Clientes"], ["exportar", "Exportar"], ["datos", "Configuración"], ["como", "Cómo funciona"]];
+const TABS = [["panel", "Panel"], ["tienda", "1 · Tu tienda"], ["competencia", "2 · Competencia"], ["sugeridos", "3 · Precios de venta"], ["clientes", "Clientes"], ["exportar", "Exportar"], ["datos", "Configuración"], ["como", "Cómo funciona"]];
 const zoneLabel = z => z.estimated ? "Sin barrio elegido" : z.name;
 const ready = () => db.products.filter(p => E.ready(db, p));
 const diff = (price, p) => `${sgn((price - p.currentPrice) / p.currentPrice)} <span class="muted">(${fmt(p.currentPrice)})</span>`;
@@ -871,7 +871,7 @@ function viewCart() {
     ${checkoutStep && ok ? `<p class="muted" style="margin:14px 0 6px">¿Cómo lo recibís?</p>
       <span class="seg" id="shipSeg"><button data-ship="envio" class="${shipMode === "envio" ? "on" : ""}">Envío a domicilio</button><button data-ship="retiro" class="${shipMode === "retiro" ? "on" : ""}">Retiro en sucursal</button></span>
       <select id="shipSel" aria-label="Barrio o sucursal" style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--surface)">${locOptions()}</select>
-      ${li ? `<p class="note">${li.barrio ? `Precio recalculado para ${esc(li.label)} (zona ${esc(E.findZone(db, li.zoneId).name)})${adj ? `: ajuste del barrio ${adj > 0 ? "+" : ""}${adj}%` : ""}.` : `Retiro en ${esc(li.label)} (zona ${esc(E.findZone(db, li.zoneId).name)}).`}</p>` : ""}
+      ${li ? `<p class="note">${li.barrio ? `Envío a ${esc(li.label)}.` : `Retiro en ${esc(li.label)}.`}</p>` : ""}
       <label class="muted" for="paySel" style="display:block;margin-top:12px">Medio de pago</label>
       <select id="paySel" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--surface)">${[["credito", "Tarjeta de crédito"], ["debito", "Tarjeta de débito"], ["transferencia", "Transferencia"], ["efectivo", "Efectivo en sucursal"]].map(([v, l]) => `<option value="${v}" ${v === payMethod ? "selected" : ""}>${l}</option>`).join("")}</select>
       <div class="err" id="payErr"></div>` : ""}
