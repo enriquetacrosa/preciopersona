@@ -100,6 +100,14 @@ td.off *{visibility:hidden}
 .formula{font-family:var(--mono);font-size:13px;background:var(--code);border-radius:8px;padding:12px;white-space:pre-wrap;overflow-x:auto}
 .chk{display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;white-space:nowrap}
 .msg{font-size:14px;color:var(--accent);margin-bottom:12px}
+.why{font-size:11.5px;color:var(--soft);line-height:1.3;margin-top:3px;white-space:normal;max-width:170px}
+.savebar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--ok-bg);color:var(--ok);border-radius:12px;padding:10px 14px;margin:0 0 16px;font-size:14px}
+.savebar b{color:var(--fg)}.savebar .sp{flex:1 1 220px;min-width:0}
+.savebar .btn{background:var(--surface);color:var(--fg)}
+.intro{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:0 0 16px}
+.intro ol{margin:6px 0 8px;padding-left:20px}.intro li{margin:3px 0}
+.intro summary{cursor:pointer;color:var(--accent);font-weight:700;font-size:14px}
+.intro details[open] summary{margin-bottom:12px}
 .err{color:var(--bad);font-size:14px}
 .alert{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:16px}
 .choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:16px}
@@ -181,7 +189,7 @@ textarea.copy{width:100%;min-height:120px;font-family:var(--mono);font-size:12px
 <!--SERVER-START--></head>
 <body><!--SERVER-END-->
 
-<div class="notice gut" id="notice">Proyecto académico · ORT 2026 · Farmashop es un caso de ejemplo, sin relación con la empresa</div>
+<div class="notice gut" id="notice">Proyecto académico · ORT 2026</div>
 <header class="top">
   <div class="gut"><div class="wrap hbar">
     <div><a class="logo" href="#admin">Precio<i>Zona</i></a><div class="tagline">Motor de precios para tiendas online</div></div>
@@ -247,7 +255,7 @@ function simCatalog(url) {
 
 // ================= BACKEND =================
 const Local = {
-  db: (() => { const d = readStore("pz-db3"); if (d) return d; const s = E.clone(E.SEED); s.customers = E.clone(DEMO_CUSTOMERS); return s; })(),
+  db: (() => { const d = readStore("pz-db3"); if (d) return E.migrate(d); const s = E.clone(E.SEED); s.customers = E.clone(DEMO_CUSTOMERS); return s; })(),
   logged: false,
   persist() { writeStore("pz-db3", this.db); },
   get() { return this.db; },
@@ -255,8 +263,7 @@ const Local = {
   async scanCompany(site) {
     await new Promise(r => setTimeout(r, 900));
     const db = this.db; db.company.site = site;
-    const cat = simCatalog(site);
-    if (!cat) throw new Error("En la vista previa solo está simulado el catálogo de Farmashop. En Render se lee la tienda que pegues.");
+    const cat = simCatalog(site) || simCatalog(FS);
     const old = Object.fromEntries(db.products.map(p => [p.id, p]));
     // Simulación: hasta que la tienda habilita el acceso, sus páginas protegidas rechazan la lectura
     const blocked = !db.company.unblocked;
@@ -287,6 +294,8 @@ const Local = {
   }
 };
 function matchChain(c, cat) { c.matches = {}; db.products.forEach(p => { const m = E.bestMatch(p, cat); if (m) c.matches[p.id] = m; }); }
+const COPY_KEY = "pz-copia";
+function keepCopy(d) { if (d && d.setupDone) writeStore(COPY_KEY, d); else if (d) writeStore(COPY_KEY, null); }
 // En Render: los datos viven en el servidor, que lee las tiendas y las capturas de verdad
 const Remote = {
   db: null, timer: null, pending: null,
@@ -298,8 +307,16 @@ const Remote = {
   },
   get() { return this.db; },
   save(d) { this.db = d; clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), 400); return d; },
-  async flush() { clearTimeout(this.timer); if (!this.db) return; this.pending = this.call("/api/admin/data", "PUT", this.db).catch(e => { flash = "No se pudo guardar: " + e.message; render(); }); await this.pending; },
-  async load() { this.db = await this.call("/api/admin/data"); return this.db; },
+  async flush() { clearTimeout(this.timer); if (!this.db) return; keepCopy(this.db); this.pending = this.call("/api/admin/data", "PUT", this.db).catch(e => { flash = "No se pudo guardar: " + e.message; render(); }); await this.pending; },
+  // Si Render se reinició y quedó vacío, se recupera solo la última copia guardada en esta compu
+  async load() {
+    let d = await this.call("/api/admin/data");
+    const copy = readStore(COPY_KEY);
+    if (!d.setupDone && copy && copy.setupDone) {
+      try { d = await this.call("/api/admin/restore", "POST", copy); flash = "Recuperamos automáticamente tu configuración guardada."; } catch (e) {}
+    } else if (d.setupDone) keepCopy(d);
+    this.db = d; return d;
+  },
   async login(pw) { await this.call("/api/admin/login", "POST", { password: pw }); return this.load(); },
   async session() { return (await this.call("/api/admin/session")).ok; },
   async scanCompany(site) {
@@ -312,7 +329,7 @@ const Remote = {
   async ocr(images) { return (await this.call("/api/admin/ocr", "POST", { images })).rows; }
 };
 const API = SERVER ? Remote : Local;
-if (!SERVER) $("#notice").textContent = "Vista previa · Proyecto académico ORT 2026 · Farmashop es un caso de ejemplo, sin relación con la empresa · La lectura de tiendas se simula; en Render es real";
+if (!SERVER) $("#notice").textContent = "Vista previa · Proyecto académico ORT 2026 · La lectura de tiendas se simula; en Render es real";
 let db = API.get();
 
 // ================= POPOVER (cálculo) =================
@@ -334,7 +351,8 @@ const openAcc = new Set();             // acordeones abiertos
 const hiddenCols = new Set();          // columnas ocultas en Precios de venta
 let showAll = false, openCustomer = null;
 const LIGHT = { verde: "Verde", amarillo: "Amarillo", rojo: "Rojo" };
-const LIGHT_TXT = { verde: "Competitivo y con margen", amarillo: "Más caro que la competencia de la zona", rojo: "Por debajo del piso, o la zona pide menos que el piso" };
+const lightHtml = ev => `<span class="light l-${ev.light}">${LIGHT[ev.light]}</span>${ev.reason ? `<div class="why">${esc(ev.reason)}</div>` : ""}`;
+const LIGHT_TXT = { verde: "Competitivo y con margen", amarillo: "Más caro que la competencia, o la competencia vende por debajo de tu piso", rojo: "Por debajo del piso: perdés margen" };
 const BASIS = { zona: "la más barata de la zona", promedio: "promedio de la competencia (no hay cadenas en esta zona)", propio: "tu precio actual (no se encontró competencia)" };
 const STEPS = [["tienda", "Tu tienda"], ["competencia", "Competencia"], ["sugeridos", "Precios de venta"]];
 const TABS = [["panel", "Panel"], ["tienda", "Productos"], ["competencia", "Competencia"], ["sugeridos", "Precios de venta"], ["clientes", "Clientes"], ["exportar", "Exportar"], ["datos", "Configuración"], ["como", "Cómo funciona"]];
@@ -366,13 +384,22 @@ function viewAdmin() {
   const setup = !db.setupDone;
   if (setup && !STEPS.some(([k]) => k === adminTab)) adminTab = "tienda";
   const idx = STEPS.findIndex(([k]) => k === adminTab);
+  const saveBar = SERVER ? `<div class="savebar"><span class="sp"><b>Tus datos se guardan solos</b> en el servidor y en esta compu. Igual, guardá un respaldo antes de actualizar.</span>
+      <a class="btn small" href="/api/admin/backup">Guardar respaldo</a>
+      <label class="btn small" for="restoreInput" style="cursor:pointer">Cargar respaldo</label><input type="file" id="restoreInput" accept=".json,application/json" hidden><span class="msg" id="restoreMsg" style="margin:0"></span></div>` : "";
+  const intro = setup ? `<div class="intro"><b>Cómo funciona PrecioZona</b>
+      <ol><li><b>Tu tienda:</b> pegás el link de tu tienda online y se cargan todos tus productos con su precio.</li>
+      <li><b>Competencia:</b> pegás los links de la competencia y se buscan los mismos productos o similares (también con capturas de pantalla).</li>
+      <li><b>Precios de venta:</b> el sistema sugiere un precio base para cada zona de Montevideo. Lo usás o lo cambiás a mano.</li></ol>
+      <div class="muted" style="font-size:14px">Después, en tu web, cada comprador que acepta las cookies ve su precio: el de su zona, más su ajuste personal, más el de su barrio al comprar. Lo hacés una sola vez; después trabajás desde el back-office.</div>
+      <details><summary>Ver cómo funciona completo</summary>${adminComo()}</details></div>` : "";
   const head = setup
-    ? `<h1>Configuración inicial</h1><p class="lead">Tres pasos y queda todo cargado.</p>
+    ? `<h1>Configuración inicial</h1><p class="lead">Tres pasos y queda todo cargado.</p>${intro}
        <div class="steps">${STEPS.map(([k, l], i) => `<div class="stp ${i === idx ? "on" : i < idx ? "done" : ""}"><b>${i < idx ? "✓" : i + 1}</b>${l}</div>`).join("")}<div class="stp"><b>4</b>Back-office</div></div>`
-    : `<h1>Back-office · ${esc(db.company.name)}</h1>
+    : `<h1>Back-office · ${esc(E.companyName(db))}</h1>
        <div class="tabs" id="tabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${k === adminTab ? "on" : ""}">${l}</button>`).join("")}</div>`;
   const body = { panel: adminPanel, tienda: adminTienda, competencia: adminCompetencia, sugeridos: adminSugeridos, clientes: adminClientes, exportar: adminExportar, datos: adminDatos, como: adminComo }[adminTab]();
-  return `<div class="gut"><div class="wrap page">${head}${flash ? `<div class="msg">${esc(flash)}</div>` : ""}${body}</div></div>`;
+  return `<div class="gut"><div class="wrap page">${saveBar}${head}${flash ? `<div class="msg">${esc(flash)}</div>` : ""}${body}</div></div>`;
 }
 
 // ---------- Paso 1: tu tienda ----------
@@ -389,12 +416,13 @@ function unblockCard() {
 }
 function adminTienda() {
   const sim = db.products.filter(p => p.simulated).length;
-  return `${SERVER && !db.setupDone ? `<div class="panel"><h2>¿Ya tenías todo configurado?</h2>
-      <div class="row" style="margin:0"><span class="muted">Si guardaste un respaldo antes de actualizar, cargalo y saltás la configuración.</span>
-      <label class="btn small ghost" for="restoreInput" style="cursor:pointer">Cargar respaldo</label><input type="file" id="restoreInput" accept=".json,application/json" hidden><span class="msg" id="restoreMsg" style="margin:0"></span></div></div>` : ""}${unblockCard()}<div class="panel"><h2>Link de tu tienda</h2>
-      <div class="siteinput"><input type="url" id="siteUrl" value="${esc(db.company.site)}" aria-label="Link de la tienda"><button class="btn" id="scanBtn" ${busy ? "disabled" : ""}>${busy ? "Leyendo la tienda…" : db.products.length ? "Volver a leer" : "Cargar productos"}</button></div>
+  return `${unblockCard()}<div class="panel"><h2>Tu tienda</h2>
+      <label class="muted" for="compName" style="display:block;font-size:14px">Nombre de tu empresa</label>
+      <input type="text" id="compName" value="${esc(db.company.name || "")}" placeholder="Ej.: Farmacia Prueba ORT" style="max-width:420px;width:100%;margin-bottom:12px">
+      <label class="muted" for="siteUrl" style="display:block;font-size:14px">Link de tu tienda online</label>
+      <div class="siteinput"><input type="url" id="siteUrl" value="${esc(db.company.site)}" placeholder="https://www.tu-tienda.com" aria-label="Link de la tienda"><button class="btn" id="scanBtn" ${busy ? "disabled" : ""}>${busy ? "Leyendo la tienda…" : db.products.length ? "Volver a leer" : "Cargar productos"}</button></div>
       <div class="note">${db.company.lastScan ? `Última lectura: ${when(db.company.lastScan)} · ${db.products.length} productos` : "El sistema recorre la tienda y carga todos los productos con su precio."}</div></div>
-    ${sim && !SERVER ? `<div class="alert">Vista previa: ${sim} precios de Farmashop son de ejemplo (marcados "simulado"). En Render se leen de verdad.</div>` : ""}
+    ${sim && !SERVER ? `<div class="alert">Vista previa: ${sim} precios son de ejemplo (marcados "simulado"). En Render se leen de verdad.</div>` : ""}
     ${db.products.length ? `<div class="panel"><h2>Productos encontrados (${db.products.length})</h2><div class="scroll"><table>
       <thead><tr><th>Producto</th><th class="n">Precio actual</th><th class="n">Costo</th></tr></thead>
       <tbody>${db.products.map((p, i) => `<tr>
@@ -405,6 +433,7 @@ function adminTienda() {
     <div class="row">${db.products.length ? `<button class="btn ${db.setupDone ? "" : "ghost"}" id="nextBtn">${db.setupDone ? "Guardar cambios" : "Siguiente: competencia →"}</button>` : ""}<span class="err" id="stepErr"></span></div>`;
 }
 function collectTienda() {
+  const cn = $("#compName"); if (cn) db.company.name = cn.value.trim();
   $$("[data-pi]").forEach(el => { const p = db.products[el.dataset.pi]; const v = el.value === "" ? null : Number(el.value); if (v !== (p[el.dataset.k] ?? null)) { p[el.dataset.k] = v; if (el.dataset.k === "currentPrice") { p.simulated = false; if (v) p.status = "manual"; } } });
   const nb = db.products.filter(p => p.status === "bloqueado").length;
   if (db.company.blocked) db.company.blocked = nb ? { ...db.company.blocked, count: nb } : null;
@@ -494,7 +523,7 @@ function adminSugeridos() {
         return `<tr>${td("zona", esc(zoneLabel(z)))}${td("comp", fmt(r.comp), 1)}${td("piso", fmt(r.floor), 1)}${td("sug", fmt(r.suggested), 1)}
           ${td("usar", `<input type="number" id="ov-${id}" data-ov="${esc(p.id)}" data-z="${z.id}" value="${val}" ${manual ? "" : "disabled"} aria-label="Precio en ${esc(zoneLabel(z))}">`, 1)}
           ${td("dif", `<span id="d-${id}">${diff(val, p)}</span>`, 1)}${td("margen", `<span id="m-${id}">${pct(ev.margin)}</span>`, 1)}
-          ${td("sem", `<span id="l-${id}"><span class="light l-${ev.light}">${LIGHT[ev.light]}</span></span>`)}</tr>`; }).join("")}
+          ${td("sem", `<span id="l-${id}">${lightHtml(ev)}</span>`)}</tr>`; }).join("")}
       </tbody></table></div></div></div>`; }).join("")}
     <div class="row" style="margin-top:12px">${!db.setupDone ? `<button class="btn ghost" id="backBtn">← Competencia</button>` : ""}<button class="btn" id="confirmPrices">${db.setupDone ? "Guardar precios" : "Confirmar y abrir el back-office"}</button><span class="err" id="stepErr"></span></div>`;
 }
@@ -518,7 +547,7 @@ function adminPanel() {
         <span class="muted">Costo: <button class="link num" id="costLink">${fmt(E.costOf(db, prod))} ✎</button></span></div>
       <div class="scroll"><table class="num"><thead><tr><th>Zona</th><th class="n">Precio</th><th class="n">Diferencia precio actual</th><th class="n">Margen</th><th>Semáforo</th><th></th></tr></thead>
       <tbody>${E.allZones(db).map(z => { const r = E.current(db, prod, z); return `<tr><td class="nw">${esc(zoneLabel(z))}</td><td class="n"><b>${fmt(r.price)}</b>${r.manual ? ` <span class="muted">(a mano)</span>` : ""}</td>
-        <td class="n">${diff(r.price, prod)}</td><td class="n">${pct(r.margin)}</td><td><span class="light l-${r.light}">${LIGHT[r.light]}</span></td>
+        <td class="n">${diff(r.price, prod)}</td><td class="n">${pct(r.margin)}</td><td>${lightHtml(r)}</td>
         <td><button class="calc-btn" data-calc="${esc(prod.id)}|${z.id}" aria-label="Ver cálculo de ${esc(zoneLabel(z))}">i</button></td></tr>`; }).join("")}</tbody></table></div>
       <div class="note">Tocá <b>i</b> para ver el cálculo. Se cierra tocando afuera. Sobre este precio base, cada comprador tiene su ajuste personal (ver Clientes).</div></div>`;
 }
@@ -599,11 +628,7 @@ function adminDatos() {
         ${ps.length ? `<p class="muted" style="margin-bottom:0">Sucursales: ${ps.map(x => esc(x.s.name)).join(", ")}</p>` : ""}
       </div></div>`; }).join("")}
     <div class="row" style="margin-top:12px"><button class="btn" id="saveBtn">Guardar cambios</button><button class="btn ghost" id="resetBtn">Restablecer el ejemplo</button><span class="err" id="stepErr"></span></div>
-    ${SERVER ? `<div class="panel" style="margin-top:16px"><h2>Respaldo</h2>
-      <p class="muted" style="margin-top:0">Render borra los datos cada vez que se actualiza o se reinicia. Antes de actualizar, guardá un respaldo; después, cargalo y queda todo como estaba.</p>
-      <div class="row"><a class="btn ghost" href="/api/admin/backup">Guardar respaldo</a>
-        <label class="btn ghost" for="restoreInput" style="cursor:pointer">Cargar respaldo</label><input type="file" id="restoreInput" accept=".json,application/json" hidden>
-        <span class="msg" id="restoreMsg" style="margin:0"></span></div></div>` : ""}`;
+`;
 }
 
 function adminComo() {
@@ -663,7 +688,7 @@ function bindAdmin() {
     const f = ri.files[0]; if (!f) return;
     try {
       const data = JSON.parse(await f.text());
-      db = await Remote.call("/api/admin/restore", "POST", data); Remote.db = db;
+      db = await Remote.call("/api/admin/restore", "POST", data); Remote.db = db; keepCopy(db);
       adminTab = db.setupDone ? "panel" : "tienda"; flash = "Respaldo cargado. Todo quedó como estaba."; render();
     } catch (e) { $("#restoreMsg").textContent = e instanceof SyntaxError ? "Ese archivo no es un respaldo de PrecioZona." : e.message; }
   };
@@ -734,7 +759,7 @@ function bindAdmin() {
       const s = E.suggest(db, p, z), ev = E.evaluate(db, p, v, s), id = `${p.id}--${z.id}`;
       $(`[id="m-${id}"]`).textContent = pct(ev.margin);
       $(`[id="d-${id}"]`).innerHTML = diff(v, p);
-      $(`[id="l-${id}"]`).innerHTML = `<span class="light l-${ev.light}">${LIGHT[ev.light]}</span>`;
+      $(`[id="l-${id}"]`).innerHTML = lightHtml(ev);
     });
     $("#confirmPrices").onclick = () => {
       const ov = {};
@@ -818,7 +843,7 @@ function viewTienda() {
   const kz = E.findZone(db, E.knownZone(db, c));
   return `<div class="demo-bar gut"><div class="wrap"><b>Simulador</b><label for="asSel">Navegar como</label>
       <select id="asSel">${db.customers.map(x => `<option value="${esc(x.id)}" ${x.id === actingAs ? "selected" : ""}>${esc(x.name)}${x.fictional ? " (ficticio)" : ""}</option>`).join("")}</select>
-      <button id="resetCookies">Borrar mis cookies</button><span style="opacity:.75">${ok ? `Zona usada: ${esc(kz.estimated ? "sin barrio elegido" : kz.name)}. El barrio se elige al pagar.` : `Así se vería la web de ${esc(db.company.name)} con el script de PrecioZona.`}</span></div></div>
+      <button id="resetCookies">Borrar mis cookies</button><span style="opacity:.75">${ok ? `Zona usada: ${esc(kz.estimated ? "sin barrio elegido" : kz.name)}. El barrio se elige al pagar.` : `Así se vería la web de ${esc(E.companyName(db))} con el script de PrecioZona.`}</span></div></div>
     <div class="gut"><div class="wrap page" style="padding-top:0">
       <div class="shop-head"><h1>Cremas corporales</h1><div class="sp"></div>
         <span class="muted">Envío gratis en Montevideo o retiro en sucursal</span>
@@ -859,7 +884,7 @@ function viewCookie() {
     <p style="margin:0">${cookieReason || `Usamos cookies propias y de terceros para que el sitio funcione, recordar tu carrito y mejorar tu experiencia de compra. Para ver precios y comprar es necesario aceptarlas.`}</p>
     <p style="margin:8px 0 0;font-size:13px"><button class="link" id="termsBtn" aria-expanded="${termsOpen}">${termsOpen ? "Ocultar" : "Ver"} términos y condiciones de cookies</button></p>
     ${termsOpen ? `<div class="terms">
-      <p><b>Términos y condiciones de uso de cookies de ${esc(db.company.name)}.</b> Al aceptar, autorizás a ${esc(db.company.name)} y a su proveedor tecnológico a almacenar cookies en tu dispositivo y a tratar los datos que se detallan, conforme a la Ley N° 18.331 de Protección de Datos Personales.</p>
+      <p><b>Términos y condiciones de uso de cookies de ${esc(E.companyName(db))}.</b> Al aceptar, autorizás a ${esc(E.companyName(db))} y a su proveedor tecnológico a almacenar cookies en tu dispositivo y a tratar los datos que se detallan, conforme a la Ley N° 18.331 de Protección de Datos Personales.</p>
       <p><b>1. Cookies técnicas.</b> Necesarias para el funcionamiento del sitio, el carrito y la sesión.</p>
       <p><b>2. Cookies de preferencias.</b> Guardan tu barrio o sucursal de entrega y tus elecciones anteriores.</p>
       <p><b>3. Cookies de análisis y personalización.</b> Recolectan: barrio o sucursal de entrega, ubicación aproximada según tu conexión, ubicación del dispositivo cuando la autorizás, zonas desde las que accedés al sitio, compras realizadas en esta tienda y montos, productos visitados, carritos no finalizados, cantidad y horario de visitas, tipo de dispositivo, sistema operativo, navegador, pantalla, memoria y procesador, idioma, zona horaria, sitio de origen de la visita y medio de pago elegido. Estos datos se usan para elaborar un perfil de compra y <b>personalizar los precios y ofertas que se te muestran</b>, que pueden variar entre usuarios. El precio que se muestra antes de confirmar la compra es el precio final.</p>

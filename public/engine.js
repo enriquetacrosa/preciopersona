@@ -17,8 +17,8 @@
 
   E.SEED = {
     setupDone: false,
-    company: { name: "Farmashop", site: "https://tienda.farmashop.com.uy", lastScan: null },
-    params: { margenMin: 0.25, tope: 0.15, costoPct: 0.65, maxAumento: 0.15, umbralPerfil: 40 },
+    company: { name: "", site: "", lastScan: null },
+    params: { margenMin: 0.25, tope: 0.15, costoPct: 0.65, maxAumento: 0.15, umbralPerfil: 40, tolComp: 0.03 },
     products: [],
     // Competencia: link de la tienda y productos encontrados (mismos o similares)
     chains: [
@@ -69,7 +69,7 @@
         vistos: ["crema-sebamed-corporal-200-ml", "crema-hidratante-cerave-corporal-454-g"], dispositivo: { tipo: "celular", os: "iPhone (iOS 18)", navegador: "Safari", pantalla: "430 × 932", memoria: null, nucleos: 6 },
         pago: "credito", origen: "instagram", hora: 11, carritosAbandonados: 0, visitas: 23, departamentoIP: "Montevideo", idioma: "es-UY" } },
     { id: "sofia", name: "Sofía", fictional: true, consent: true, locks: {},
-      signals: { zonaEntrega: "costa", zonasFrecuentes: ["costa", "centro"], comprasPrevias: 4, ticketPrevio: 1200,
+      signals: { zonaEntrega: "costa", zonasFrecuentes: ["costa", "centro"], barrio: "Pocitos", comprasPrevias: 4, ticketPrevio: 1200,
         vistos: ["crema-corporal-nivea-reafirmante-q10-plus-250-ml"], dispositivo: { tipo: "computadora", os: "Windows 11", navegador: "Chrome", pantalla: "1920 × 1080", memoria: 8, nucleos: 8 },
         pago: "credito", origen: "directo", hora: 15, carritosAbandonados: 1, visitas: 9, departamentoIP: "Montevideo", idioma: "es-UY" } },
     { id: "martin", name: "Martín", fictional: true, consent: true, locks: {},
@@ -80,6 +80,7 @@
 
   E.clone = o => JSON.parse(JSON.stringify(o));
   E.round9 = p => Math.ceil(p / 10) * 10 - 1;
+  E.up9 = p => { const r = E.round9(p); return r < Math.round(p) ? r + 10 : r; };
   E.slug = s => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "producto";
   const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 
@@ -175,12 +176,20 @@
     if (price < floor) price += 10;
     return { cost, floor, comp: c.value, compBasis: c.basis, base, target, capped, price, belowFloor: capped < floor };
   };
+  // Semáforo con tolerancia: no cambia de color por $1
+  //  rojo     = precio por debajo del piso (se pierde margen)
+  //  amarillo = la competencia vende por debajo de tu piso, o sos más de 3% más caro que ella
+  //  verde    = sobre el piso y como mucho 3% más caro que la competencia
   E.evaluate = (db, p, price, s) => {
     const margin = (price - s.cost) / price;
-    let light = "verde";
-    if (price < s.floor || (s.belowFloor && price <= s.price)) light = "rojo";
-    else if (price > s.comp * 1.01) light = "amarillo";
-    return { margin, light };
+    const tol = db.params.tolComp != null ? db.params.tolComp : 0.03;
+    const hasComp = s.compBasis !== "propio";
+    let light = "verde", reason = "Competitivo y con margen";
+    if (price < s.floor) { light = "rojo"; reason = "Por debajo del piso: perdés margen"; }
+    else if (hasComp && s.comp < s.floor) { light = "amarillo"; reason = "Competencia más barata que tu piso"; }
+    else if (hasComp && price > s.comp * (1 + tol)) { light = "amarillo"; reason = "Más de " + Math.round(tol * 100) + "% más caro que la competencia"; }
+    else if (!hasComp) reason = "Sin competencia: con margen";
+    return { margin, light, reason };
   };
   E.current = (db, p, zone) => {
     const s = E.suggest(db, p, zone);
@@ -256,9 +265,10 @@
     const lock = c.locks && c.locks[p.id];
     const pr = E.profile(db, c);
     if (lock) return { ...z, personal: pr, final: lock, locked: true, barrioAdj: 0, barrio: barrio ? barrio.name : null };
-    const afterPerson = z.price * (1 + pr.adj);
+    // Sin ajuste el precio queda igual; con ajuste se redondea a 9 siempre hacia arriba (nunca baja)
+    const afterPerson = pr.adj ? E.up9(z.price * (1 + pr.adj)) : z.price;
     const ba = barrio ? (Number(barrio.ajuste) || 0) / 100 : 0;
-    return { ...z, personal: pr, afterPerson: E.round9(afterPerson), barrioAdj: ba, barrio: barrio ? barrio.name : null, final: E.round9(afterPerson * (1 + ba)), locked: false };
+    return { ...z, personal: pr, afterPerson, barrioAdj: ba, barrio: barrio ? barrio.name : null, final: ba ? E.up9(afterPerson * (1 + ba)) : afterPerson, locked: false };
   };
   // Zona que se usa antes de que la persona elija barrio: su zona habitual, o donde se conectó, o "sin barrio"
   E.knownZone = (db, c) => {
@@ -273,6 +283,20 @@
     return null;
   };
 
+  // Pone al día datos guardados con versiones anteriores (respaldos)
+  E.migrate = db => {
+    if (!db || !db.params) return db;
+    if (db.params.tolComp == null) db.params.tolComp = 0.03;
+    // El ejemplo viejo de Farmashop ya no se usa: el nombre sale de la tienda cargada
+    const co = db.company || (db.company = { name: "", site: "" });
+    if (co.name === "Farmashop" && !/farmashop/i.test(co.site || "")) co.name = /tienda-prueba/i.test(co.site || "") ? "Farmacia Prueba ORT" : "";
+    (db.customers || []).forEach(c => {
+      const d = E.DEMO_CUSTOMERS.find(x => x.id === c.id);
+      if (c.fictional && d && d.signals.barrio && !(c.signals || {}).barrio) c.signals = { ...(c.signals || {}), barrio: d.signals.barrio };
+    });
+    return db;
+  };
+  E.companyName = db => (db.company && db.company.name) || (db.company && db.company.site ? (() => { try { return new URL(db.company.site).hostname.replace(/^www\./, ""); } catch (e) { return "tu tienda"; } })() : "tu tienda");
   E.freshDb = () => { const s = E.clone(E.SEED); s.customers = E.clone(E.DEMO_CUSTOMERS); return s; };
 
   // Ubicación del dispositivo → zona de precio más cercana (punto de referencia aproximado de cada zona)
