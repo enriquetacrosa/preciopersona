@@ -17,7 +17,7 @@ const STALE_MS = 12 * 60 * 60 * 1000;
 
 // ================= Base de datos (archivo JSON) =================
 let db;
-try { db = JSON.parse(fs.readFileSync(DB_FILE, "utf8")); } catch { db = E.freshDb(); }
+try { db = E.migrate(JSON.parse(fs.readFileSync(DB_FILE, "utf8"))); } catch { db = E.freshDb(); }
 function save() {
   try { fs.mkdirSync(path.dirname(DB_FILE), { recursive: true }); fs.writeFileSync(DB_FILE, JSON.stringify(db)); }
   catch (e) { console.error("No se pudo guardar:", e.message); }
@@ -158,7 +158,7 @@ app.get("/api/admin/backup", (req, res) => {
 app.post("/api/admin/restore", (req, res) => {
   const b = req.body || {};
   if (!Array.isArray(b.products) || !Array.isArray(b.chains) || !b.params || !Array.isArray(b.zones)) return res.status(400).json({ error: "Ese archivo no es un respaldo de PrecioZona." });
-  db = b; save(); res.json(db);
+  db = E.migrate(b); save(); res.json(db);
 });
 app.post("/api/admin/clear-visitors", (req, res) => { db.customers = db.customers.filter(c => c.fictional); db.orders = db.orders.filter(o => db.customers.some(c => c.id === o.customerId)); save(); res.json(db); });
 
@@ -174,7 +174,7 @@ function customer(id) { return db.customers.find(c => c.id === id); }
 
 // Datos para armar la tienda: productos (sin precio), barrios y sucursales
 app.get("/api/public/config", (req, res) => {
-  res.json({ company: db.company.name, ready: !!db.setupDone,
+  res.json({ company: E.companyName(db), ready: !!db.setupDone,
     products: db.products.filter(p => E.ready(db, p)).map(p => ({ id: p.id, name: p.name, url: p.url })),
     barrios: db.barrios.map((b, i) => ({ loc: "b:" + i, name: b.name })).sort((a, b) => a.name.localeCompare(b.name, "es")),
     pickups: db.pickups.map(p => ({ loc: "p:" + p.id, name: p.name })) });
