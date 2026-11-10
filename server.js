@@ -90,12 +90,7 @@ async function deptFromIp(ip) {
     ipCache.set(clean, out); return out;
   } catch { return null; }
 }
-function locToZone(loc) {
-  if (typeof loc !== "string") return null;
-  if (loc.startsWith("b:")) { const b = db.barrios[+loc.slice(2)]; return b ? { zoneId: b.zoneId, label: b.name } : null; }
-  if (loc.startsWith("p:")) { const p = db.pickups.find(x => "p:" + x.id === loc); return p ? { zoneId: p.zoneId, label: p.name } : null; }
-  return null;
-}
+const locToZone = loc => E.locInfo(db, loc);
 
 // ================= Back-office =================
 const sessions = new Set();
@@ -155,6 +150,16 @@ app.get("/api/admin/export.csv", (req, res) => {
   res.send("﻿" + csv);
 });
 app.post("/api/admin/reset", (req, res) => { db = E.freshDb(); save(); res.json(db); });
+// Respaldo: Render borra los datos al actualizar o reiniciar; con esto se guardan y se vuelven a cargar
+app.get("/api/admin/backup", (req, res) => {
+  res.setHeader("Content-Disposition", `attachment; filename="respaldo-preciozona-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json(db);
+});
+app.post("/api/admin/restore", (req, res) => {
+  const b = req.body || {};
+  if (!Array.isArray(b.products) || !Array.isArray(b.chains) || !b.params || !Array.isArray(b.zones)) return res.status(400).json({ error: "Ese archivo no es un respaldo de PrecioZona." });
+  db = b; save(); res.json(db);
+});
 app.post("/api/admin/clear-visitors", (req, res) => { db.customers = db.customers.filter(c => c.fictional); db.orders = db.orders.filter(o => db.customers.some(c => c.id === o.customerId)); save(); res.json(db); });
 
 // ================= API pública para la web de la tienda (la usa preciozona.js) =================
@@ -208,23 +213,24 @@ app.post("/api/public/track", (req, res) => {
 app.get("/api/public/prices", (req, res) => {
   const c = customer(req.query.visitor);
   if (!c || !c.consent) return res.json({ consent: false, prices: {} });
-  const z = locToZone(req.query.loc);
-  const zone = E.findZone(db, z ? z.zoneId : c.signals.zonaEntrega);
+  // Sin barrio: zona conocida de la persona. Con barrio (al pagar): su zona + ajuste del barrio.
+  const li = locToZone(req.query.loc);
+  const zone = E.findZone(db, li ? li.zoneId : E.knownZone(db, c));
   const prices = {};
-  db.products.filter(p => E.ready(db, p)).forEach(p => { const r = E.personalPrice(db, p, zone, c); prices[p.id] = { price: r.final, locked: r.locked }; });
-  res.json({ consent: true, zone: zone.name, prices });
+  db.products.filter(p => E.ready(db, p)).forEach(p => { const r = E.personalPrice(db, p, zone, c, li ? li.barrio : null); prices[p.id] = { price: r.final, locked: r.locked }; });
+  res.json({ consent: true, zone: zone.name, barrio: li && li.barrio ? li.barrio.name : null, barrioAdj: li && li.barrio ? li.barrio.ajuste || 0 : 0, prices });
 });
 app.post("/api/public/order", (req, res) => {
   const b = req.body || {}, c = customer(b.visitorId);
   if (!c || !c.consent) return res.status(403).json({ error: "Para comprar hay que aceptar las cookies.", needConsent: true });
-  const z = locToZone(b.loc) || (c.signals.zonaEntrega ? { zoneId: c.signals.zonaEntrega } : null);
+  const z = locToZone(b.loc);
   if (!z) return res.status(400).json({ error: "Elegí tu barrio o una sucursal." });
   const zone = E.findZone(db, z.zoneId);
   const items = (b.items || []).map(it => ({ p: db.products.find(p => p.id === it.id), q: Math.max(1, Math.min(20, parseInt(it.q, 10) || 1)) })).filter(x => x.p && E.ready(db, x.p));
   if (!items.length) return res.status(400).json({ error: "El carrito está vacío." });
   let total = 0;
-  items.forEach(({ p, q }) => { const r = E.personalPrice(db, p, zone, c); total += r.final * q; c.locks[p.id] = c.locks[p.id] || r.final; });
-  c.signals.zonaEntrega = zone.id;
+  items.forEach(({ p, q }) => { const r = E.personalPrice(db, p, zone, c, z.barrio); total += r.final * q; c.locks[p.id] = c.locks[p.id] || r.final; });
+  c.signals.zonaEntrega = zone.id; if (z.barrio) c.signals.barrio = z.barrio.name;
   if (["credito", "debito", "transferencia", "efectivo"].includes(b.pago)) c.signals.pago = b.pago;
   c.signals.hora = new Date().getHours();
   const order = { id: "PZ-" + (1001 + db.orders.length), date: now(), customerId: c.id, total, items: items.map(({ p, q }) => ({ id: p.id, q })) };
@@ -235,12 +241,13 @@ app.post("/api/public/order", (req, res) => {
 app.get("/api/precio", (req, res) => {
   const p = db.products.find(x => x.id === req.query.producto);
   if (!p || !E.ready(db, p)) return res.status(404).json({ error: "Producto no encontrado o sin precio." });
-  let zoneId = req.query.zona;
-  if (req.query.barrio) { const b = db.barrios.find(x => E.norm(x.name) === E.norm(req.query.barrio)); if (b) zoneId = b.zoneId; }
-  const zone = E.findZone(db, zoneId), c = req.query.cliente ? customer(req.query.cliente) : null;
+  let zoneId = req.query.zona, bar = null;
+  if (req.query.barrio) { bar = db.barrios.find(x => E.norm(x.name) === E.norm(req.query.barrio)) || null; if (bar) zoneId = bar.zoneId; }
+  const c = req.query.cliente ? customer(req.query.cliente) : null;
   if (c && !c.consent) return res.json({ producto: p.name, consent: false, precio: null });
-  const r = E.personalPrice(db, p, zone, c);
-  res.json({ producto: p.name, zona: zone.name, precio: c ? r.final : r.price });
+  const zone = E.findZone(db, zoneId || (c ? E.knownZone(db, c) : null));
+  const r = E.personalPrice(db, p, zone, c, bar);
+  res.json({ producto: p.name, zona: zone.name, barrio: bar ? bar.name : null, precio: c ? r.final : r.price });
 });
 
 // ================= Páginas =================
