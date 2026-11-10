@@ -1,0 +1,20 @@
+{
+  "name": "preciozona",
+  "version": "1.0.0",
+  "description": "Motor de precios por zona para tiendas online (Artefacto 2, ORT)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": "20.x || 22.x"
+  },
+  "dependencies": {
+    "@tesseract.js-data/spa": "^1.0.0",
+    "express": "^4.21.2",
+    "tesseract.js": "^6.0.1"
+  },
+  "overrides": {
+    "wasm-feature-detect": "1.6.2"
+  }
+}

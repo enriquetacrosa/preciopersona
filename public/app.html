@@ -1,0 +1,875 @@
+<!--SERVER-START--><!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--SERVER-END-->
+<title>PrecioZona</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Manrope:wght@400;500;700&display=swap">
+<style>
+/* Layout: back-office de una columna con secciones plegables; tienda de prueba como grilla de productos con carrito lateral */
+:root{
+  --bg:#f4f6f5; --surface:#ffffff; --tint:#e7eeec; --line:#d6dfdc;
+  --fg:#1d2a2e; --soft:#56666b; --accent:#2f6f73; --accent-fg:#ffffff;
+  --ok-bg:#dcefe3; --ok:#1d6b40; --warn-bg:#f6e8c4; --warn:#7a5600; --bad-bg:#f6dad6; --bad:#9c2f26; --idle-bg:#e9ecec; --idle:#56666b;
+  --code:#eef2f1; --bar:#2f6f73; --scrim:rgba(10,16,18,.55);
+  --display:"Bricolage Grotesque", "Arial Narrow", Arial, sans-serif;
+  --body:"Manrope", "Segoe UI", Arial, sans-serif;
+  --mono:ui-monospace, Consolas, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121a1c; --surface:#1a2427; --tint:#223034; --line:#2f3f43;
+  --fg:#e6eeec; --soft:#a1b1b4; --accent:#7cc3c6; --accent-fg:#0f1a1c;
+  --ok-bg:#1d3a2a; --ok:#8fd8aa; --warn-bg:#3a3018; --warn:#f0cf7c; --bad-bg:#43211e; --bad:#f2a49c; --idle-bg:#263234; --idle:#a1b1b4;
+  --code:#0f1618; --bar:#7cc3c6; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121a1c; --surface:#1a2427; --tint:#223034; --line:#2f3f43;
+  --fg:#e6eeec; --soft:#a1b1b4; --accent:#7cc3c6; --accent-fg:#0f1a1c;
+  --ok-bg:#1d3a2a; --ok:#8fd8aa; --warn-bg:#3a3018; --warn:#f0cf7c; --bad-bg:#43211e; --bad:#f2a49c; --idle-bg:#263234; --idle:#a1b1b4;
+  --code:#0f1618; --bar:#7cc3c6; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,select,input,textarea{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--soft);font-size:14px}
+.notice{background:var(--tint);color:var(--soft);font-size:13px;text-align:center;padding-block:7px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.hbar{display:flex;align-items:center;gap:18px;padding-block:12px;flex-wrap:wrap}
+.logo{font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:-.5px;text-decoration:none}
+.logo i{font-style:normal;color:var(--accent)}
+.tagline{font-size:13px;color:var(--soft)}
+.sp{flex:1}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav a{text-decoration:none;font-size:14px;padding:7px 12px;border-radius:8px;color:var(--soft)}
+.nav a.on{background:var(--tint);color:var(--fg);font-weight:700}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--accent);color:var(--accent-fg);border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;text-decoration:none;font-size:15px}
+.btn.ghost{background:none;color:var(--fg);border:1px solid var(--line)}
+.btn.small{padding:6px 10px;font-size:13px}
+.btn:disabled{opacity:.6;cursor:wait}
+.link{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline;font-size:inherit}
+.page{padding-block:24px 56px}
+.page h1{font-family:var(--display);font-size:30px;letter-spacing:-.5px;margin:0 0 4px;text-wrap:balance}
+.lead{max-width:66ch;color:var(--soft);margin:0 0 16px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;background:var(--tint);border-radius:10px;padding:4px;margin:16px 0 20px;width:fit-content;max-width:100%}
+.tabs button{border:0;background:none;padding:8px 13px;border-radius:7px;cursor:pointer;color:var(--soft);font-size:14px}
+.tabs button.on{background:var(--surface);color:var(--fg);font-weight:700}
+.steps{display:flex;gap:16px;margin:16px 0 20px;flex-wrap:wrap}
+.stp{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--soft)}
+.stp b{display:inline-flex;width:26px;height:26px;border-radius:50%;align-items:center;justify-content:center;background:var(--tint);color:var(--soft);font-size:13px}
+.stp.on{color:var(--fg);font-weight:700}
+.stp.on b{background:var(--accent);color:var(--accent-fg)}
+.stp.done b{background:var(--ok-bg);color:var(--ok)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .l{font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:1px}
+.kpi .v{font-size:24px;font-weight:700}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px;min-width:0}
+.panel h2{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.panel select,.panel input,.panel textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.panel input[type=number]{width:96px}
+.siteinput{display:flex;gap:10px;flex-wrap:wrap}
+.siteinput input{flex:1;min-width:240px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--soft);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.8px;white-space:nowrap}
+td.n,th.n{text-align:right;white-space:nowrap}
+td.nw{white-space:nowrap}
+th.tog{cursor:pointer;user-select:none}
+th.tog:hover{color:var(--fg)}
+th.tog.off{color:var(--soft);opacity:.65}
+td.off{color:transparent}
+td.off *{visibility:hidden}
+.light,.st,.tag{display:inline-block;font-weight:700;border-radius:999px;padding:2px 10px;font-size:12px;white-space:nowrap}
+.l-verde,.st-ok{background:var(--ok-bg);color:var(--ok)}
+.l-amarillo,.st-manual,.tag-sim{background:var(--warn-bg);color:var(--warn)}
+.l-rojo,.st-error{background:var(--bad-bg);color:var(--bad)}
+.st-sin-link,.st-pendiente,.tag-gray{background:var(--idle-bg);color:var(--idle)}
+.tag-mismo{background:var(--ok-bg);color:var(--ok)}
+.tag-similar{background:var(--tint);color:var(--accent)}
+.note{font-size:12px;color:var(--soft);margin-top:3px}
+.formula{font-family:var(--mono);font-size:13px;background:var(--code);border-radius:8px;padding:12px;white-space:pre-wrap;overflow-x:auto}
+.chk{display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;white-space:nowrap}
+.msg{font-size:14px;color:var(--accent);margin-bottom:12px}
+.err{color:var(--bad);font-size:14px}
+.alert{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+.choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.choice{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer}
+.choice.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.choice input{margin-top:4px;accent-color:var(--accent)}
+.choice b{display:block;margin-bottom:2px}
+/* acordeones */
+.acc{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;min-width:0}
+.acc-head{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;padding:14px 16px;cursor:pointer;text-align:left}
+.acc-head .arrow{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--tint);align-items:center;justify-content:center;transition:transform .15s;flex:none}
+.acc.open .acc-head .arrow{transform:rotate(180deg)}
+.acc-title{font-weight:700;flex:1;min-width:0}
+.acc-body{padding:0 16px 16px}
+/* popover del cálculo */
+.calc-btn{background:var(--tint);border:0;border-radius:999px;width:24px;height:24px;cursor:pointer;font-size:13px;font-weight:700;color:var(--accent)}
+.popover{position:fixed;z-index:40;max-width:min(560px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.2);padding:14px}
+.popover h3{margin:0 0 8px;font-size:15px}
+.flow{display:flex;gap:10px;flex-wrap:wrap}
+.step{flex:1;min-width:170px;background:var(--tint);border-radius:10px;padding:14px;font-size:14px}
+.step b{display:block;margin-bottom:4px}
+.login{max-width:380px;margin:8vh auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px}
+.login input{width:100%;margin:12px 0;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--surface)}
+.full{width:100%}
+.bar{height:8px;border-radius:999px;background:var(--tint);overflow:hidden;min-width:80px}
+.bar span{display:block;height:100%;background:var(--bar)}
+.factors{display:grid;grid-template-columns:minmax(0,1.4fr) 60px minmax(80px,1fr) 52px;gap:6px 12px;align-items:center;font-size:14px}
+.dl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:4px 14px;font-size:14px}
+.dl dt{color:var(--soft)}
+.dl dd{margin:0}
+.api{font-family:var(--mono);font-size:13px;background:var(--code);border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:nowrap}
+textarea.copy{width:100%;min-height:120px;font-family:var(--mono);font-size:12px}
+/* tienda de prueba */
+.demo-bar{background:var(--fg);color:var(--bg);font-size:13px;padding-block:8px}
+.demo-bar .wrap{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.demo-bar select{background:var(--bg);color:var(--fg);border:0;border-radius:6px;padding:4px 8px;font-size:13px}
+.demo-bar button{background:none;border:1px solid currentColor;color:inherit;border-radius:6px;padding:3px 8px;font-size:13px;cursor:pointer}
+.shop-head{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding-block:18px 8px}
+.shop-head h1{margin:0}
+.where{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+.where select{border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:var(--surface);max-width:100%}
+.seg{display:inline-flex;gap:4px;background:var(--tint);border-radius:10px;padding:4px}
+.seg button{border:0;background:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:14px;color:var(--soft);white-space:nowrap}
+.seg button.on{background:var(--surface);color:var(--fg);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.pcard .ph{height:110px;border-radius:10px;background:var(--tint);display:flex;align-items:center;justify-content:center;font-family:var(--display);color:var(--soft);font-size:13px;text-align:center;padding:10px}
+.pcard h3{font-size:15px;margin:0;line-height:1.3}
+.pcard .pr{font-size:26px;font-weight:700;line-height:1.1;margin-top:auto}
+.pcard .lock{font-size:14px;color:var(--soft);margin-top:auto;background:var(--tint);border-radius:8px;padding:8px 10px}
+.cartbtn{position:relative}
+.cartbtn b{position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;border-radius:999px;font-size:11px;padding:1px 6px}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(400px,100vw);background:var(--surface);border-left:1px solid var(--line);z-index:35;padding:calc(18px + env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) 18px 18px;overflow:auto;box-shadow:-10px 0 30px rgba(0,0,0,.15)}
+.drawer h2{font-family:var(--display);margin:0 0 12px}
+.line{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.scrim{position:fixed;inset:0;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center;padding:16px;z-index:50}
+.cookie{background:var(--surface);border-radius:16px;max-width:620px;width:100%;padding:22px;margin-bottom:max(0px,env(safe-area-inset-bottom,0px))}
+.cookie h3{font-family:var(--display);font-size:22px;margin:0 0 6px}
+.cookie{max-height:calc(100% - 16px);overflow:auto}
+.terms{font-size:11px;line-height:1.45;color:var(--soft);max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px}
+.terms p{margin:0 0 6px}
+.shots{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.shots img{height:84px;border-radius:8px;border:1px solid var(--line)}
+.unblock{border:1px solid var(--warn);background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:16px;margin-bottom:16px}
+.unblock h3{margin:0 0 6px;font-size:17px}
+.unblock ol{margin:8px 0;padding-left:20px;font-size:14px}
+.unblock code{font-family:var(--mono);font-size:12px;background:var(--surface);color:var(--fg);border-radius:4px;padding:1px 5px}
+.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.actions .btn{flex:1}
+@media (max-width:860px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .choices,.cards{grid-template-columns:1fr}
+  .dl{grid-template-columns:1fr}
+  .factors{grid-template-columns:minmax(0,1fr) 50px 52px}
+  .factors .bar{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<!--SERVER-START--></head>
+<body><!--SERVER-END-->
+
+<div class="notice gut" id="notice">Proyecto académico · ORT 2026 · Farmashop es un caso de ejemplo, sin relación con la empresa</div>
+<header class="top">
+  <div class="gut"><div class="wrap hbar">
+    <div><a class="logo" href="#admin">Precio<i>Zona</i></a><div class="tagline">Motor de precios para tiendas online</div></div>
+    <div class="sp"></div>
+    <nav class="nav" id="nav"><a href="#admin">Back-office</a><a href="#tienda">Tienda de prueba</a></nav>
+  </div></div>
+</header>
+
+<main id="app"><div class="gut"><div class="wrap page"><p class="muted">Cargando…</p></div></div></main>
+<div class="popover" id="popover" hidden></div>
+
+<script>window.CC_MODE = "local";</script>
+<!--ENGINE--><script src="/engine.js"></script><!--/ENGINE-->
+<script>
+const SERVER = window.CC_MODE === "server";
+const E = window.Engine;
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const fmt = n => n > 0 ? "$ " + Math.round(n).toLocaleString("es-UY") : "—";
+const pct = n => (n * 100).toFixed(1).replace(".", ",") + "%";
+const sgn = n => (n > 0 ? "+" : "") + pct(n);
+const dec = n => Number(n).toFixed(2).replace(".", ",");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const when = iso => iso ? new Date(iso).toLocaleString("es-UY", { dateStyle: "short", timeStyle: "short" }) : "";
+const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+function readStore(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+function writeStore(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+// ================= DATOS DE LA SIMULACIÓN (solo vista previa) =================
+// Real = leído de la web el 10/11/2026 o del relevamiento del Obligatorio 1. Simulado = dato de ejemplo.
+const FS = "https://tienda.farmashop.com.uy/";
+const SIM_CATALOGS = {
+  "farmashop.com.uy": [
+    { name: "Crema Hidratante CeraVe Corporal 454 g", url: FS + "crema-hidratante-cerave-corporal-454-g.html", price: 1635 },
+    { name: "Crema Corporal Cicatricure Antiestrías 400 ml", url: FS + "598139.html", price: 525 },
+    { name: "Crema Corporal Nivea Reafirmante Q10 Plus 250 ml", url: FS + "nivea-body-reafirmante-q10-plus-250ml.html", price: 690, simulated: true },
+    { name: "Crema Corporal Six Leche de Coco 195 g", url: FS + "six-crema-corporal-leche-de-coco-195-grs.html", price: 289, simulated: true },
+    { name: "Crema Corporal Dermavite Urea 530 ml", url: FS + "dermavite-crema-corporal-urea-530-ml.html", price: 749, simulated: true },
+    { name: "Crema Sebamed Corporal 200 ml", url: FS + "sebamed-crema-corporal-200-ml.html", price: 980, simulated: true }
+  ],
+  "sanroque.com.uy": [
+    { name: "CeraVe Crema Hidratante 454 g", price: 1600 },
+    { name: "Nivea Crema Corporal Reafirmante Q10 400 ml", price: 899, simulated: true },
+    { name: "Sebamed Crema Corporal 200 ml", price: 1050, simulated: true }
+  ],
+  "farmacity.com.uy": [
+    { name: "Crema Corporal CeraVe Hidratante x 454 g", url: "https://www.farmacity.com.uy/crema-corporal-cerave-hidratante-x-454-g/p", price: 1600 },
+    { name: "Six Crema Corporal Coco 400 g", price: 520, simulated: true },
+    { name: "Dermaglós Crema Corporal Urea 10% 500 ml", price: 690, simulated: true }
+  ],
+  "pigalle.com.uy": [
+    { name: "CeraVe Crema Hidratante 454 g", price: 1199 },
+    { name: "Nivea Q10 Reafirmante Crema Corporal 250 ml", price: 650, simulated: true },
+    { name: "Cicatricure Crema Antiestrías 400 ml", price: 499, simulated: true }
+  ]
+};
+const DEMO_CUSTOMERS = E.DEMO_CUSTOMERS;
+function simCatalog(url) {
+  const h = host(url);
+  const key = Object.keys(SIM_CATALOGS).find(k => h.endsWith(k));
+  return key ? SIM_CATALOGS[key] : null;
+}
+
+// ================= BACKEND =================
+const Local = {
+  db: (() => { const d = readStore("pz-db3"); if (d) return d; const s = E.clone(E.SEED); s.customers = E.clone(DEMO_CUSTOMERS); return s; })(),
+  logged: false,
+  persist() { writeStore("pz-db3", this.db); },
+  get() { return this.db; },
+  save(d) { this.db = d; this.persist(); return d; },
+  async scanCompany(site) {
+    await new Promise(r => setTimeout(r, 900));
+    const db = this.db; db.company.site = site;
+    const cat = simCatalog(site);
+    if (!cat) throw new Error("En la vista previa solo está simulado el catálogo de Farmashop. En Render se lee la tienda que pegues.");
+    const old = Object.fromEntries(db.products.map(p => [p.id, p]));
+    // Simulación: hasta que la tienda habilita el acceso, sus páginas protegidas rechazan la lectura
+    const blocked = !db.company.unblocked;
+    db.products = cat.map(it => { const id = E.slug(it.name), stop = blocked && it.simulated, prev = old[id] || {};
+      return { id, name: it.name, url: it.url, currentPrice: stop ? (prev.status === "manual" ? prev.currentPrice : null) : it.price, cost: prev.cost ?? null,
+        status: stop ? (prev.status === "manual" ? "manual" : "bloqueado") : "ok", note: stop ? "La tienda rechazó la lectura automática" : "", simulated: !stop && !!it.simulated, updated: new Date().toISOString() }; });
+    const nb = db.products.filter(p => p.status === "bloqueado").length;
+    db.company.blocked = nb ? { count: nb, total: db.products.length } : null;
+    db.company.lastScan = new Date().toISOString();
+    this.persist(); return db;
+  },
+  async scanCompetitors() {
+    await new Promise(r => setTimeout(r, 1100));
+    const db = this.db;
+    db.chains.forEach(c => {
+      c.lastScan = new Date().toISOString();
+      if (c.manualCatalog && c.manualCatalog.length) { matchChain(c, c.manualCatalog); c.status = "capturas"; c.note = `${c.manualCatalog.length} productos cargados desde capturas`; return; }
+      c.matches = {};
+      const h = host(c.site);
+      if (["pigalle.com.uy", "mercadolibre.com.uy"].some(x => h.endsWith(x))) { c.status = "error"; c.note = "La tienda bloquea la lectura automática. Cargala con capturas de pantalla."; return; }
+      const cat = simCatalog(c.site);
+      if (!cat) { c.status = "error"; c.note = "En la vista previa no se puede leer esta tienda; en Render sí se intenta. También podés usar capturas."; return; }
+      c.status = "ok"; c.note = `${cat.length} productos analizados`;
+      matchChain(c, cat);
+    });
+    db.lastScrape = new Date().toISOString();
+    this.persist(); return db;
+  }
+};
+function matchChain(c, cat) { c.matches = {}; db.products.forEach(p => { const m = E.bestMatch(p, cat); if (m) c.matches[p.id] = m; }); }
+// En Render: los datos viven en el servidor, que lee las tiendas y las capturas de verdad
+const Remote = {
+  db: null, timer: null, pending: null,
+  async call(path, method = "GET", body) {
+    const r = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error || "Error del servidor"); e.data = j; e.status = r.status; throw e; }
+    return j;
+  },
+  get() { return this.db; },
+  save(d) { this.db = d; clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), 400); return d; },
+  async flush() { clearTimeout(this.timer); if (!this.db) return; this.pending = this.call("/api/admin/data", "PUT", this.db).catch(e => { flash = "No se pudo guardar: " + e.message; render(); }); await this.pending; },
+  async load() { this.db = await this.call("/api/admin/data"); return this.db; },
+  async login(pw) { await this.call("/api/admin/login", "POST", { password: pw }); return this.load(); },
+  async session() { return (await this.call("/api/admin/session")).ok; },
+  async scanCompany(site) {
+    await this.flush();
+    try { this.db = await this.call("/api/admin/scan-company", "POST", { site, unblocked: !!(this.db.company && this.db.company.unblocked) }); }
+    catch (e) { if (e.data && e.data.db) this.db = e.data.db; db = this.db; throw e; }
+    return this.db;
+  },
+  async scanCompetitors() { await this.flush(); this.db = await this.call("/api/admin/scan-competitors", "POST", { sites: this.db.chains.map(c => c.site) }); return this.db; },
+  async ocr(images) { return (await this.call("/api/admin/ocr", "POST", { images })).rows; }
+};
+const API = SERVER ? Remote : Local;
+if (!SERVER) $("#notice").textContent = "Vista previa · Proyecto académico ORT 2026 · Farmashop es un caso de ejemplo, sin relación con la empresa · La lectura de tiendas se simula; en Render es real";
+let db = API.get();
+
+// ================= POPOVER (cálculo) =================
+function openPopover(anchor, html) {
+  const pop = $("#popover"); pop.innerHTML = html; pop.hidden = false;
+  const r = anchor.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = Math.min(r.left, window.innerWidth - w - 16); left = Math.max(16, left);
+  let top = r.bottom + 8; if (top + h > window.innerHeight - 16) top = Math.max(16, r.top - h - 8);
+  pop.style.left = left + "px"; pop.style.top = top + "px";
+}
+const closePopover = () => { $("#popover").hidden = true; };
+document.addEventListener("click", e => { if (!e.target.closest("#popover") && !e.target.closest("[data-calc]")) closePopover(); });
+window.addEventListener("scroll", closePopover, { passive: true });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closePopover(); });
+
+// ================= BACK-OFFICE =================
+let adminOk = false, adminTab = "panel", selProd = null, priceMode = null, busy = false, flash = "", focusAfter = null;
+const openAcc = new Set();             // acordeones abiertos
+const hiddenCols = new Set();          // columnas ocultas en Precios de venta
+let showAll = false, openCustomer = null;
+const LIGHT = { verde: "Verde", amarillo: "Amarillo", rojo: "Rojo" };
+const LIGHT_TXT = { verde: "Competitivo y con margen", amarillo: "Más caro que la competencia de la zona", rojo: "Por debajo del piso, o la zona pide menos que el piso" };
+const BASIS = { zona: "la más barata de la zona", promedio: "promedio de la competencia (no hay cadenas en esta zona)", propio: "tu precio actual (no se encontró competencia)" };
+const STEPS = [["tienda", "Tu tienda"], ["competencia", "Competencia"], ["sugeridos", "Precios de venta"]];
+const TABS = [["panel", "Panel"], ["tienda", "Productos"], ["competencia", "Competencia"], ["sugeridos", "Precios de venta"], ["clientes", "Clientes"], ["exportar", "Exportar"], ["datos", "Configuración"], ["como", "Cómo funciona"]];
+const zoneLabel = z => z.estimated ? "Sin zona elegida" : z.name;
+const ready = () => db.products.filter(p => E.ready(db, p));
+const diff = (price, p) => `${sgn((price - p.currentPrice) / p.currentPrice)} <span class="muted">(${fmt(p.currentPrice)})</span>`;
+const save = () => { db = API.save(db); };
+
+function calcHtml(p, z) {
+  const r = E.current(db, p, z);
+  const barrios = db.barrios.filter(b => b.zoneId === z.id).length;
+  return `<h3>${esc(p.name)} · ${esc(zoneLabel(z))}</h3><div class="formula num">Piso     = Costo ÷ (1 − Margen)    = ${Math.round(r.cost)} ÷ ${dec(1 - db.params.margenMin)} = ${Math.round(r.floor)}
+Objetivo = Competencia × Factor   = ${Math.round(r.comp)} × ${dec(z.factor)} = ${Math.round(r.target)}
+Con tope = ±${Math.round(db.params.tope * 100)}% del precio actual  = ${Math.round(r.capped)}
+Sugerido = máx(Piso, Con tope), en 9 = ${r.suggested}${r.manual ? `\nVigente  = ${r.price} (cargado a mano)` : ""}
+
+Competencia: ${BASIS[r.compBasis]}${z.estimated ? "" : `\nBarrios en la zona: ${barrios}`}</div>`;
+}
+
+function viewLogin() {
+  return `<div class="gut"><form class="login" id="loginForm">
+    <div class="logo">Precio<i>Zona</i></div><div class="muted">Back-office · acceso del equipo comercial</div>
+    <label for="pw" class="muted" style="display:block;margin-top:14px">Contraseña${SERVER ? "" : " (demo: ort2026)"}</label>
+    <input type="password" id="pw" autocomplete="current-password">
+    <button class="btn full">Entrar</button><div class="err" id="pwErr"></div></form></div>`;
+}
+function viewAdmin() {
+  if (!adminOk) return viewLogin();
+  const setup = !db.setupDone;
+  if (setup && !STEPS.some(([k]) => k === adminTab)) adminTab = "tienda";
+  const idx = STEPS.findIndex(([k]) => k === adminTab);
+  const head = setup
+    ? `<h1>Configuración inicial</h1><p class="lead">Tres pasos y queda todo cargado.</p>
+       <div class="steps">${STEPS.map(([k, l], i) => `<div class="stp ${i === idx ? "on" : i < idx ? "done" : ""}"><b>${i < idx ? "✓" : i + 1}</b>${l}</div>`).join("")}<div class="stp"><b>4</b>Back-office</div></div>`
+    : `<h1>Back-office · ${esc(db.company.name)}</h1>
+       <div class="tabs" id="tabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${k === adminTab ? "on" : ""}">${l}</button>`).join("")}</div>`;
+  const body = { panel: adminPanel, tienda: adminTienda, competencia: adminCompetencia, sugeridos: adminSugeridos, clientes: adminClientes, exportar: adminExportar, datos: adminDatos, como: adminComo }[adminTab]();
+  return `<div class="gut"><div class="wrap page">${head}${flash ? `<div class="msg">${esc(flash)}</div>` : ""}${body}</div></div>`;
+}
+
+// ---------- Paso 1: tu tienda ----------
+function unblockCard() {
+  const b = db.company.blocked; if (!b) return "";
+  return `<div class="unblock" role="alert"><h3>Tu tienda está bloqueando la lectura de ${b.count} de ${b.total} productos</h3>
+    <div style="font-size:14px">Para que PrecioZona cargue todo tu catálogo y lo mantenga actualizado, habilitá el acceso con una de estas opciones:</div>
+    <ol>
+      <li><b>Recomendado:</b> conectá tu plataforma (Shopify, VTEX, Tienda Nube o WooCommerce) desde su panel de aplicaciones.</li>
+      <li>En la protección anti-bots de tu web (por ejemplo, Cloudflare), agregá a PrecioZona a la lista de permitidos.</li>
+      <li>En el archivo <code>robots.txt</code> de tu web, agregá: <code>User-agent: PrecioZona</code> y <code>Allow: /</code></li>
+    </ol>
+    <div class="row" style="margin:0"><button class="btn" id="unblockBtn" ${busy ? "disabled" : ""}>Ya lo habilité, volver a leer</button><span style="font-size:13px">Mientras tanto, podés cargar esos precios a mano abajo.</span></div></div>`;
+}
+function adminTienda() {
+  const sim = db.products.filter(p => p.simulated).length;
+  return `${unblockCard()}<div class="panel"><h2>Link de tu tienda</h2>
+      <div class="siteinput"><input type="url" id="siteUrl" value="${esc(db.company.site)}" aria-label="Link de la tienda"><button class="btn" id="scanBtn" ${busy ? "disabled" : ""}>${busy ? "Leyendo la tienda…" : db.products.length ? "Volver a leer" : "Cargar productos"}</button></div>
+      <div class="note">${db.company.lastScan ? `Última lectura: ${when(db.company.lastScan)} · ${db.products.length} productos` : "El sistema recorre la tienda y carga todos los productos con su precio."}</div></div>
+    ${sim && !SERVER ? `<div class="alert">Vista previa: ${sim} precios de Farmashop son de ejemplo (marcados "simulado"). En Render se leen de verdad.</div>` : ""}
+    ${db.products.length ? `<div class="panel"><h2>Productos encontrados (${db.products.length})</h2><div class="scroll"><table>
+      <thead><tr><th>Producto</th><th class="n">Precio actual</th><th class="n">Costo</th></tr></thead>
+      <tbody>${db.products.map((p, i) => `<tr>
+        <td>${esc(p.name)} ${p.simulated ? `<span class="tag tag-sim">simulado</span>` : ""}${p.status === "bloqueado" ? `<span class="st st-error">Bloqueado: cargá el precio</span>` : ""}<div class="note"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(host(p.url))} ↗</a></div></td>
+        <td class="n"><input type="number" id="pp-${i}" data-pi="${i}" data-k="currentPrice" value="${p.currentPrice ?? ""}" aria-label="Precio actual de ${esc(p.name)}"></td>
+        <td class="n"><input type="number" id="pc-${i}" data-pi="${i}" data-k="cost" value="${p.cost ?? ""}" placeholder="≈ ${Math.round((p.currentPrice || 0) * db.params.costoPct)}" aria-label="Costo de ${esc(p.name)}"></td></tr>`).join("")}</tbody></table></div>
+      <div class="note">Si no cargás el costo, se estima como el ${Math.round(db.params.costoPct * 100)}% del precio actual.</div></div>` : ""}
+    <div class="row">${db.products.length ? `<button class="btn ${db.setupDone ? "" : "ghost"}" id="nextBtn">${db.setupDone ? "Guardar cambios" : "Siguiente: competencia →"}</button>` : ""}<span class="err" id="stepErr"></span></div>`;
+}
+function collectTienda() {
+  $$("[data-pi]").forEach(el => { const p = db.products[el.dataset.pi]; const v = el.value === "" ? null : Number(el.value); if (v !== (p[el.dataset.k] ?? null)) { p[el.dataset.k] = v; if (el.dataset.k === "currentPrice") { p.simulated = false; if (v) p.status = "manual"; } } });
+  const nb = db.products.filter(p => p.status === "bloqueado").length;
+  if (db.company.blocked) db.company.blocked = nb ? { ...db.company.blocked, count: nb } : null;
+}
+
+// ---------- Paso 2: competencia ----------
+// ---------- Capturas de pantalla ----------
+let shotFor = null, shotFiles = [], shotRows = [];
+function shotPanel() {
+  const c = db.chains[shotFor];
+  return `<div class="panel" id="shotPanel"><h2>Cargar ${esc(c.name)} con capturas de pantalla</h2>
+    <p class="muted" style="margin-top:0">Sacá capturas de la página de la tienda donde se vean los productos y sus precios, y subilas acá.
+      ${SERVER ? "El sistema lee el texto de las imágenes y arma la lista. Revisala antes de usarla: la lectura de imágenes puede confundir algún nombre o precio." : "<b>En la vista previa las imágenes no se pueden leer:</b> completá la lista mirando la captura. En Render el sistema lee el texto de las imágenes y la completa solo."}</p>
+    <label class="btn ghost small" for="shotInput" style="cursor:pointer">Elegir capturas</label>
+    <input type="file" id="shotInput" accept="image/*" multiple hidden>
+    ${shotFiles.length ? `<div class="shots">${shotFiles.map((u, i) => `<img src="${u}" alt="Captura ${i + 1} de ${esc(c.name)}">`).join("")}</div>` : `<p class="note">Todavía no subiste capturas.</p>`}
+    <div class="scroll"><table><thead><tr><th>Producto como figura en la captura</th><th class="n">Precio</th><th></th></tr></thead><tbody>
+      ${shotRows.map((r, i) => `<tr><td><input id="sn-${i}" data-sn="${i}" value="${esc(r.name)}" style="width:100%;min-width:220px" aria-label="Nombre del producto ${i + 1}"></td>
+        <td class="n"><input type="number" id="sp-${i}" data-sp="${i}" value="${r.price ?? ""}" aria-label="Precio del producto ${i + 1}"></td>
+        <td><button class="link" data-sdel="${i}" aria-label="Quitar fila ${i + 1}">Quitar</button></td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="row" style="margin-top:10px"><button class="btn small ghost" id="shotAdd">+ Agregar producto</button><div class="sp"></div>
+      <button class="btn ghost" id="shotCancel">Cancelar</button><button class="btn" id="shotUse">Usar estos productos</button></div>
+    <div class="err" id="shotErr"></div></div>`;
+}
+function collectShots() {
+  $$("[data-sn]").forEach(el => { shotRows[el.dataset.sn].name = el.value; });
+  $$("[data-sp]").forEach(el => { shotRows[el.dataset.sp].price = el.value === "" ? null : Number(el.value); });
+}
+
+function adminCompetencia() {
+  const label = c => c.status === "ok" ? "Analizada" : c.status === "capturas" ? "Cargada con capturas" : "No se pudo leer";
+  return `<div class="panel"><h2>Links de la competencia</h2>
+      ${db.chains.map((c, i) => `<div class="row"><b style="min-width:90px">${esc(c.name)}</b><input type="url" id="cs-${i}" data-cs="${i}" value="${esc(c.site)}" style="flex:1;min-width:220px" aria-label="Link de ${esc(c.name)}">
+        ${c.lastScan ? `<span class="st ${c.status === "error" ? "st-error" : "st-ok"}">${label(c)}</span>` : ""}
+        <button class="btn small ${c.status === "error" ? "" : "ghost"}" data-shot="${i}">Subir capturas</button></div>
+        ${c.status === "error" ? `<div class="note" style="margin:-4px 0 10px">${esc(c.note)}</div>` : ""}`).join("")}
+      <div class="row"><button class="btn" id="compBtn" ${busy ? "disabled" : ""}>${busy ? "Analizando…" : "Analizar competencia"}</button><span class="note">Busca tus productos en cada tienda: el mismo producto, o uno similar si no lo vende.</span></div></div>
+    ${shotFor !== null ? shotPanel() : ""}
+    ${db.lastScrape ? `<div class="row" style="justify-content:flex-end"><button class="btn small ghost" id="toggleAll">${showAll ? "Ocultar todos" : "Mostrar todos los productos"}</button></div>
+    ${db.products.map(p => {
+      const found = db.chains.map(c => ({ c, m: c.matches[p.id] })).filter(x => x.m);
+      const key = "c-" + p.id, open = showAll || openAcc.has(key);
+      return `<div class="acc ${open ? "open" : ""}"><button class="acc-head" data-acc="${key}" aria-expanded="${open}"><span class="arrow">▾</span><span class="acc-title">${esc(p.name)}</span><span class="muted">${found.length ? `${found.length} de ${db.chains.length} tiendas` : "sin competencia"}</span></button>
+        ${open ? `<div class="acc-body"><div class="scroll"><table class="num"><thead><tr><th>Tienda</th><th>Producto encontrado</th><th>Coincidencia</th><th class="n">Precio</th><th class="n">Para comparar</th></tr></thead><tbody>
+        ${db.chains.map(c => { const m = c.matches[p.id]; return m ? `<tr><td class="nw">${esc(c.name)}</td><td>${esc(m.name)} ${m.simulated && !SERVER ? `<span class="tag tag-sim">simulado</span>` : ""}</td>
+          <td>${m.kind === "mismo" ? `<span class="tag tag-mismo">Mismo producto</span>` : `<span class="tag tag-similar">Similar a ${esc(p.name.split(" ").slice(0, 4).join(" "))}…</span>`}</td>
+          <td class="n">${fmt(m.price)}</td><td class="n">${fmt(m.equivPrice)}${m.sizeNote ? `<div class="note">${esc(m.sizeNote)}</div>` : ""}</td></tr>` : `<tr><td class="nw">${esc(c.name)}</td><td colspan="4" class="muted">${c.status === "error" ? esc(c.note) : "No vende este producto ni uno similar"}</td></tr>`; }).join("")}
+        </tbody></table></div></div>` : ""}</div>`; }).join("")}` : ""}
+    <div class="row" style="margin-top:12px">${!db.setupDone ? `<button class="btn ghost" id="backBtn">← Tu tienda</button>` : ""}${db.lastScrape ? `<button class="btn ${db.setupDone ? "" : "ghost"}" id="nextBtn">${db.setupDone ? "Guardar cambios" : "Siguiente: precios de venta →"}</button>` : ""}<span class="err" id="stepErr"></span></div>`;
+}
+function collectCompetencia() { $$("[data-cs]").forEach(el => { db.chains[el.dataset.cs].site = el.value.trim(); }); }
+
+// ---------- Paso 3: precios de venta ----------
+const COLS = [["zona", "Zona"], ["comp", "Competencia"], ["piso", "Piso"], ["sug", "Sugerido"], ["usar", "Precio a usar"], ["dif", "Diferencia precio actual"], ["margen", "Margen"], ["sem", "Semáforo"]];
+function adminSugeridos() {
+  const hasOv = Object.values(db.overrides || {}).some(o => Object.keys(o).length);
+  if (!priceMode) priceMode = hasOv ? "manual" : "sugeridos";
+  const manual = priceMode === "manual";
+  const th = (k, l, n) => `<th class="tog ${n ? "n" : ""} ${hiddenCols.has(k) ? "off" : ""}" data-col="${k}" title="Tocá para ${hiddenCols.has(k) ? "mostrar" : "ocultar"} la columna">${l}</th>`;
+  const td = (k, html, n) => `<td class="${n ? "n" : ""} ${k === "zona" ? "nw" : ""} ${hiddenCols.has(k) ? "off" : ""}">${html}</td>`;
+  return `<div class="choices" role="radiogroup">
+      <label class="choice ${!manual ? "on" : ""}"><input type="radio" name="pm" value="sugeridos" ${!manual ? "checked" : ""}><span><b>Usar los precios sugeridos</b><span class="muted">Se recalculan solos cuando cambia la competencia o un costo.</span></span></label>
+      <label class="choice ${manual ? "on" : ""}"><input type="radio" name="pm" value="manual" ${manual ? "checked" : ""}><span><b>Cargar mis precios a mano</b><span class="muted">Partís del sugerido y lo cambiás donde quieras.</span></span></label>
+    </div>
+    <div class="row" style="justify-content:space-between"><span class="muted">Tocá el título de una columna para ocultarla o mostrarla.</span><button class="btn small ghost" id="toggleAll">${showAll ? "Ocultar todos" : "Mostrar todos los productos"}</button></div>
+    ${ready().map(p => {
+      const key = "s-" + p.id, open = showAll || openAcc.has(key);
+      const reds = E.allZones(db).filter(z => E.current(db, p, z).light === "rojo").length;
+      return `<div class="acc ${open ? "open" : ""}"><button class="acc-head" data-acc="${key}" aria-expanded="${open}"><span class="arrow">▾</span><span class="acc-title">${esc(p.name)}</span><span class="muted">${fmt(p.currentPrice)}</span>${reds ? `<span class="light l-rojo">${reds} en rojo</span>` : ""}</button>
+      <div class="acc-body" ${open ? "" : "hidden"}><div class="scroll"><table class="num"><thead><tr>${COLS.map(([k, l]) => th(k, l, !["zona", "sem"].includes(k))).join("")}</tr></thead><tbody>
+      ${E.allZones(db).map(z => {
+        const r = E.current(db, p, z), val = manual ? r.price : r.suggested, ev = E.evaluate(db, p, val, r), id = `${p.id}--${z.id}`;
+        return `<tr>${td("zona", esc(zoneLabel(z)))}${td("comp", fmt(r.comp), 1)}${td("piso", fmt(r.floor), 1)}${td("sug", fmt(r.suggested), 1)}
+          ${td("usar", `<input type="number" id="ov-${id}" data-ov="${esc(p.id)}" data-z="${z.id}" value="${val}" ${manual ? "" : "disabled"} aria-label="Precio en ${esc(zoneLabel(z))}">`, 1)}
+          ${td("dif", `<span id="d-${id}">${diff(val, p)}</span>`, 1)}${td("margen", `<span id="m-${id}">${pct(ev.margin)}</span>`, 1)}
+          ${td("sem", `<span id="l-${id}"><span class="light l-${ev.light}">${LIGHT[ev.light]}</span></span>`)}</tr>`; }).join("")}
+      </tbody></table></div></div></div>`; }).join("")}
+    <div class="row" style="margin-top:12px">${!db.setupDone ? `<button class="btn ghost" id="backBtn">← Competencia</button>` : ""}<button class="btn" id="confirmPrices">${db.setupDone ? "Guardar precios" : "Confirmar y abrir el back-office"}</button><span class="err" id="stepErr"></span></div>`;
+}
+
+// ---------- Panel ----------
+function adminPanel() {
+  const list = ready();
+  if (!list.length) return `<div class="alert">No hay productos con precio. <button class="link" data-go="tienda">Cargalos</button>.</div>`;
+  if (!list.some(p => p.id === selProd)) selProd = list[0].id;
+  const prod = list.find(p => p.id === selProd);
+  const reds = list.reduce((n, p) => n + E.allZones(db).filter(z => E.current(db, p, z).light === "rojo").length, 0);
+  const consented = db.customers.filter(c => c.consent).length;
+  return `<div class="kpis num">
+      <div class="kpi"><div class="l">Productos</div><div class="v">${list.length}</div></div>
+      <div class="kpi"><div class="l">Precios en rojo</div><div class="v">${reds}</div></div>
+      <div class="kpi"><div class="l">Clientes con perfil</div><div class="v">${consented}</div></div>
+      <div class="kpi"><div class="l">Pedidos</div><div class="v">${db.orders.length}</div></div>
+    </div>
+    <div class="panel"><h2>Precio por zona</h2>
+      <div class="row"><select id="prodSel" aria-label="Producto">${list.map(p => `<option value="${esc(p.id)}" ${p.id === selProd ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
+        <span class="muted">Costo: <button class="link num" id="costLink">${fmt(E.costOf(db, prod))} ✎</button></span></div>
+      <div class="scroll"><table class="num"><thead><tr><th>Zona</th><th class="n">Precio</th><th class="n">Diferencia precio actual</th><th class="n">Margen</th><th>Semáforo</th><th></th></tr></thead>
+      <tbody>${E.allZones(db).map(z => { const r = E.current(db, prod, z); return `<tr><td class="nw">${esc(zoneLabel(z))}</td><td class="n"><b>${fmt(r.price)}</b>${r.manual ? ` <span class="muted">(a mano)</span>` : ""}</td>
+        <td class="n">${diff(r.price, prod)}</td><td class="n">${pct(r.margin)}</td><td><span class="light l-${r.light}">${LIGHT[r.light]}</span></td>
+        <td><button class="calc-btn" data-calc="${esc(prod.id)}|${z.id}" aria-label="Ver cálculo de ${esc(zoneLabel(z))}">i</button></td></tr>`; }).join("")}</tbody></table></div>
+      <div class="note">Tocá <b>i</b> para ver el cálculo. Se cierra tocando afuera.</div></div>`;
+}
+
+// ---------- Clientes ----------
+function adminClientes() {
+  const list = ready();
+  const ref = list[0];
+  return `<p class="lead">Perfil de cada comprador que aceptó las cookies. El índice va de 0 a 100: hasta ${db.params.umbralPerfil} paga el precio de su zona; arriba de eso, hasta +${Math.round(db.params.maxAumento * 100)}%.</p>
+    ${db.customers.length ? db.customers.map(c => {
+      const open = openCustomer === c.id;
+      const pr = c.consent ? E.profile(db, c) : null;
+      return `<div class="acc ${open ? "open" : ""}"><button class="acc-head" data-cust="${esc(c.id)}" aria-expanded="${open}"><span class="arrow">▾</span>
+        <span class="acc-title">${esc(c.name)} ${c.fictional ? `<span class="tag tag-gray">ficticio</span>` : ""}</span>
+        ${pr ? `<span class="bar" style="width:110px"><span style="width:${pr.index}%"></span></span><span class="num" style="min-width:150px">Índice ${pr.index} · ${pr.adj ? "+" + pct(pr.adj) : "precio de zona"}</span>` : `<span class="muted">${c.consent === false ? "Rechazó las cookies" : "Sin decidir"}</span>`}</button>
+        ${open ? `<div class="acc-body">${pr ? customerDetail(c, pr, ref) : `<p class="muted">No hay datos: sin consentimiento no se recolecta nada y no ve precios.</p>`}</div>` : ""}</div>`; }).join("")
+      : `<div class="panel"><p class="muted">Todavía no hay clientes. Entrá a la tienda de prueba y aceptá las cookies.</p></div>`}`;
+}
+function customerDetail(c, pr, ref) {
+  const s = c.signals, d = s.dispositivo || {};
+  const zn = id => (db.zones.find(z => z.id === id) || {}).name || "—";
+  const orders = db.orders.filter(o => o.customerId === c.id);
+  const items = [
+    ["Zona de entrega", zn(s.zonaEntrega)], ["Zonas por donde se mueve", (s.zonasFrecuentes || []).map(zn).join(", ") || "—"],
+    ["Departamento por IP", s.departamentoIP || (SERVER ? "—" : "solo en Render")], ["Compras", `${orders.length + (s.comprasPrevias || 0)} (${orders.length} en esta demo)`],
+    ["Gasto promedio previo", s.ticketPrevio ? fmt(s.ticketPrevio) : "—"], ["Productos vistos", (s.vistos || []).length],
+    ["Carritos abandonados", s.carritosAbandonados || 0], ["Visitas", s.visitas || 1],
+    ["Dispositivo", [d.tipo, d.os, d.navegador].filter(Boolean).join(" · ") || "—"], ["Pantalla", d.pantalla || "—"],
+    ["Memoria / núcleos", `${d.memoria ? d.memoria + " GB" : "—"} / ${d.nucleos || "—"}`], ["Idioma y zona horaria", [s.idioma, s.zonaHoraria].filter(Boolean).join(" · ") || "—"],
+    ["De dónde llegó", s.origen || "—"], ["Hora habitual", s.hora != null ? s.hora + " h" : "—"], ["Medio de pago", s.pago || "—"]
+  ];
+  return `<div class="row" style="align-items:flex-start;gap:24px">
+    <div style="flex:1.2;min-width:260px"><h2 class="muted" style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 8px">Cómo se calcula su índice</h2>
+      <div class="factors num">${E.FACTORS.map(f => `<span>${f.label}</span><span class="muted">peso ${f.w}</span><span class="bar"><span style="width:${Math.round(pr.scores[f.k] * 100)}%"></span></span><span>${Math.round(pr.scores[f.k] * 100)}</span>`).join("")}</div>
+      <p style="margin:10px 0 0"><b>Índice ${pr.index}</b> → ajuste personal ${pr.adj ? "+" + pct(pr.adj) : "0% (paga el precio de su zona)"}</p></div>
+    <div style="flex:1;min-width:240px"><h2 class="muted" style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 8px">Datos recolectados</h2>
+      <dl class="dl">${items.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div></div>
+    ${ref ? `<div class="scroll" style="margin-top:12px"><table class="num"><thead><tr><th>Producto</th><th class="n">Precio de su zona</th><th class="n">Su precio</th><th></th></tr></thead><tbody>
+    ${ready().map(p => { const r = E.personalPrice(db, p, E.findZone(db, s.zonaEntrega), c); return `<tr><td>${esc(p.name)}</td><td class="n">${fmt(r.price)}</td><td class="n"><b>${fmt(r.final)}</b></td><td>${r.locked ? `<span class="tag tag-gray">precio fijado en su primera compra</span>` : ""}</td></tr>`; }).join("")}
+    </tbody></table></div>` : ""}`;
+}
+
+// ---------- Exportar ----------
+function adminExportar() {
+  const rows = E.exportRows(db), tsv = rows.map(r => r.join("\t")).join("\n");
+  const first = ready()[0];
+  return `<div class="panel"><h2>1 · Llevar los precios a Excel o Google Sheets</h2>
+      <div class="row">${SERVER ? `<a class="btn" href="/api/admin/export.csv">Descargar planilla</a>` : ""}<button class="btn ${SERVER ? "ghost" : ""}" id="copyBtn">Copiar tabla</button><span class="muted" id="copyMsg">${SERVER ? "La planilla se abre en Excel. En Google Sheets: Archivo → Importar." : "Pegala en Excel o Google Sheets. En Render también se puede descargar el archivo."}</span></div>
+      <div class="scroll"><table class="num"><thead><tr>${rows[0].map((h, i) => i === 1 ? "" : `<th class="${i > 1 ? "n" : ""}">${esc(h)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.slice(1).map(r => `<tr>${r.map((v, i) => i === 1 ? "" : `<td class="${i > 1 ? "n" : ""}">${i > 1 ? fmt(v) : esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+      <textarea class="copy" id="copyArea" readonly hidden aria-label="Tabla para copiar">${esc(tsv)}</textarea></div>
+    <div class="panel"><h2>2 · Conectar directo con la web de la tienda</h2>
+      <p class="muted" style="margin-top:0">La web de la tienda agrega un script de PrecioZona. El script muestra el cartel de cookies, junta los datos del comprador y le pide a este back-office el precio para esa persona. No hay que cargar nada a mano: el precio aparece solo en la tienda.</p>
+      <div class="api">&lt;script src="https://TU-SITIO.onrender.com/preciozona.js"&gt;&lt;/script&gt;</div>
+      ${first ? `<div class="api" style="margin-top:8px">GET /api/precio?producto=${esc(first.id)}&amp;cliente=lucia → { "precio": ${E.personalPrice(db, first, E.findZone(db, "costa-este"), db.customers.find(c => c.id === "lucia")).final || "…"} }</div>` : ""}
+      <p class="muted">Para probarla: pedime la tienda de prueba aparte. Es una página que se conecta con tu sitio de Render como si fuera la web de un cliente.</p></div>`;
+}
+
+// ---------- Configuración ----------
+function adminDatos() {
+  const p = db.params;
+  return `<div class="panel"><h2>Reglas de precio</h2><div class="row">
+      <label>Margen mínimo (%) <input type="number" id="pMargen" value="${Math.round(p.margenMin * 100)}"></label>
+      <label>Tope por zona (±%) <input type="number" id="pTope" value="${Math.round(p.tope * 100)}"></label>
+      <label>Costo estimado (% del precio) <input type="number" id="pCosto" value="${Math.round(p.costoPct * 100)}"></label>
+      <label>Aumento personal máximo (%) <input type="number" id="pMax" value="${Math.round(p.maxAumento * 100)}"></label>
+      <label>Índice desde el que aumenta <input type="number" id="pUmbral" value="${p.umbralPerfil}"></label></div></div>
+    <div class="row" style="justify-content:space-between"><b>Zonas de precio</b><button class="btn small ghost" id="toggleAll">${showAll ? "Plegar todas" : "Desplegar todas"}</button></div>
+    ${db.zones.map((z, i) => {
+      const key = "z-" + z.id, open = showAll || openAcc.has(key);
+      const bs = db.barrios.map((b, bi) => ({ b, bi })).filter(x => x.b.zoneId === z.id);
+      const ps = db.pickups.map((s, si) => ({ s, si })).filter(x => x.s.zoneId === z.id);
+      return `<div class="acc ${open ? "open" : ""}"><button class="acc-head" data-acc="${key}" aria-expanded="${open}"><span class="arrow">▾</span><span class="acc-title">${esc(z.name)} <span class="muted">· ${esc(z.dept)}</span></span><span class="muted">${bs.length} barrios · ${ps.length} sucursal${ps.length === 1 ? "" : "es"}</span></button>
+      <div class="acc-body" ${open ? "" : "hidden"}>
+        <div class="row"><label>Factor <input type="number" step="0.01" id="zf-${i}" data-zf="${i}" value="${z.factor}"></label>
+          <span class="muted">Compiten:</span>${db.chains.map(c => `<label class="chk"><input type="checkbox" data-zc="${i}" value="${esc(c.name)}" ${z.chains.includes(c.name) ? "checked" : ""}>${esc(c.name)}</label>`).join("")}</div>
+        ${bs.length ? `<div class="scroll"><table><thead><tr><th>Barrio</th><th>Mover a</th></tr></thead><tbody>${bs.map(({ b, bi }) => `<tr><td>${esc(b.name)}</td><td><select id="bz-${bi}" data-bz="${bi}" aria-label="Zona de ${esc(b.name)}">${db.zones.filter(x => x.dept === "Montevideo").map(x => `<option value="${x.id}" ${x.id === b.zoneId ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Sin barrios: esta zona es solo para retiro en sucursal.</p>`}
+        ${ps.length ? `<p class="muted" style="margin-bottom:0">Sucursales: ${ps.map(x => esc(x.s.name)).join(", ")}</p>` : ""}
+      </div></div>`; }).join("")}
+    <div class="row" style="margin-top:12px"><button class="btn" id="saveBtn">Guardar cambios</button><button class="btn ghost" id="resetBtn">Restablecer el ejemplo</button><span class="err" id="stepErr"></span></div>`;
+}
+
+function adminComo() {
+  return `<div class="panel"><h2>Cómo viajan los datos</h2><div class="flow">
+      <div class="step"><b>1 · Tiendas</b>Con el link de la tienda se cargan todos sus productos. Con los links de la competencia se buscan los mismos productos o similares.</div>
+      <div class="step"><b>2 · Precio por zona</b>Piso, competencia de la zona, factor y tope. El equipo acepta el sugerido o carga el suyo.</div>
+      <div class="step"><b>3 · Perfil del comprador</b>Si acepta las cookies, se junta lo que permite el navegador y su historial en la tienda, y se calcula un índice de 0 a 100.</div>
+      <div class="step"><b>4 · Precio personal</b>Precio de su zona más un ajuste según su índice. Si recompra un producto, mantiene el precio de su primera compra.</div>
+    </div></div>
+    <div class="panel"><h2>Qué se puede saber del comprador (con consentimiento)</h2><div class="formula">Zona de entrega y sucursal de retiro · departamento por IP · ubicación del momento (con permiso)
+Zonas donde abre la tienda en distintas visitas · compras en esta tienda y gasto promedio
+Productos que mira y su nivel de precio · carritos abandonados · visitas y horario
+Dispositivo, sistema, navegador, pantalla, memoria y núcleos · idioma y zona horaria
+De dónde llegó (Instagram, Google, directo, email) · medio de pago
+
+No se puede saber: compras en otras tiendas, ingresos, ni por dónde se mueve fuera de la tienda.
+
+Competencia bloqueada: se carga subiendo capturas de pantalla (en Render se leen con OCR).
+Tienda del cliente bloqueada: el sistema le pide habilitar el acceso.</div></div>
+    <div class="panel"><h2>Marco legal (Uruguay)</h2><div class="formula">Ley 18.331: el consentimiento tiene que ser informado. El uso de los datos para
+personalizar precios está explicado en los términos de cookies, a un clic del cartel.
+Riesgo: si se considera que ese fin no se informó con claridad, el consentimiento
+podría no ser válido.
+Ley 17.250: el precio que se muestra antes de comprar es el que se cobra.</div></div>`;
+}
+
+// ---------- Eventos del back-office ----------
+async function withBusy(fn) { busy = true; render(); try { await fn(); } catch (e) { flash = e.message; } busy = false; render(); }
+function bindAdmin() {
+  if (!adminOk) {
+    $("#loginForm").onsubmit = async e => {
+      e.preventDefault();
+      if (SERVER) { try { db = await Remote.login($("#pw").value); adminOk = true; render(); } catch (err) { $("#pwErr").textContent = err.message; } return; }
+      if ($("#pw").value === "ort2026") { adminOk = true; render(); } else $("#pwErr").textContent = "Contraseña incorrecta.";
+    };
+    return;
+  }
+  const go = t => {
+    adminTab = t; flash = ""; priceMode = null; showAll = false; render(); window.scrollTo(0, 0);
+    // En Render se traen los datos nuevos (visitantes y pedidos que llegan desde la web de la tienda)
+    if (SERVER && ["panel", "clientes"].includes(t)) Remote.flush().then(() => Remote.load()).then(d => { db = d; if (adminTab === t) render(); }).catch(() => {});
+  };
+  const tabs = $("#tabs"); if (tabs) tabs.onclick = e => { const b = e.target.closest("button"); if (b) go(b.dataset.tab); };
+  $$("[data-go]").forEach(a => a.onclick = () => go(a.dataset.go));
+  $$("[data-acc]").forEach(b => b.onclick = () => { const k = b.dataset.acc; if (showAll) { showAll = false; $$("[data-acc]").forEach(x => openAcc.add(x.dataset.acc)); } openAcc.has(k) ? openAcc.delete(k) : openAcc.add(k); render(); });
+  const ta = $("#toggleAll"); if (ta) ta.onclick = () => { showAll = !showAll; if (!showAll) openAcc.clear(); render(); };
+  const back = $("#backBtn"); if (back) back.onclick = () => go(adminTab === "competencia" ? "tienda" : "competencia");
+
+  if (adminTab === "tienda") {
+    const scanMsg = url => { const b = db.company.blocked; return b ? `Se cargaron ${b.total - b.count} de ${b.total} productos de ${host(url)}. El resto está bloqueado por tu tienda.` : `Se cargaron ${db.products.length} productos de ${host(url)}.`; };
+    $("#scanBtn").onclick = () => { const url = $("#siteUrl").value.trim(); collectTienda(); withBusy(async () => { db = await API.scanCompany(url); flash = scanMsg(url); }); };
+    const ub = $("#unblockBtn"); if (ub) ub.onclick = () => { collectTienda(); withBusy(async () => { db.company.unblocked = true; db = await API.scanCompany(db.company.site); flash = db.company.blocked ? "Todavía hay productos bloqueados. Revisá la configuración de tu web." : "Acceso habilitado. " + scanMsg(db.company.site); }); };
+    const nb = $("#nextBtn"); if (nb) nb.onclick = () => { collectTienda(); save(); if (db.setupDone) { flash = "Guardado."; render(); } else go("competencia"); };
+    if (focusAfter) { const el = $(focusAfter); focusAfter = null; if (el) { el.scrollIntoView({ block: "center" }); el.focus(); el.select(); } }
+  }
+  if (adminTab === "competencia") {
+    $$("[data-shot]").forEach(b => b.onclick = () => {
+      collectCompetencia(); shotFor = +b.dataset.shot;
+      const c = db.chains[shotFor]; shotFiles = []; shotRows = (c.manualCatalog || []).map(x => ({ ...x }));
+      if (!shotRows.length) shotRows = [{ name: "", price: null }];
+      render(); $("#shotPanel").scrollIntoView({ block: "start" });
+    });
+    if (shotFor !== null) {
+      $("#shotInput").onchange = async e => {
+        collectShots();
+        const files = Array.from(e.target.files);
+        files.forEach(f => shotFiles.push(URL.createObjectURL(f)));
+        if (!SERVER) { render(); return; }
+        // En Render: el servidor lee el texto de las capturas y completa la lista
+        flash = "Leyendo las capturas…"; render();
+        try {
+          const images = await Promise.all(files.map(f => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); })));
+          const rows = await Remote.ocr(images);
+          shotRows = shotRows.filter(r => r.name.trim() || r.price).concat(rows);
+          if (!shotRows.length) shotRows = [{ name: "", price: null }];
+          flash = rows.length ? `Se leyeron ${rows.length} productos. Revisá nombres y precios antes de usarlos.` : "No se encontraron precios en las capturas. Completá la lista a mano.";
+        } catch (err) { flash = err.message; }
+        render();
+      };
+      $("#shotAdd").onclick = () => { collectShots(); shotRows.push({ name: "", price: null }); render(); $(`#sn-${shotRows.length - 1}`).focus(); };
+      $$("[data-sdel]").forEach(b => b.onclick = () => { collectShots(); shotRows.splice(+b.dataset.sdel, 1); render(); });
+      $("#shotCancel").onclick = () => { shotFor = null; render(); };
+      $("#shotUse").onclick = () => {
+        collectShots();
+        const rows = shotRows.filter(r => r.name.trim() && r.price > 0).map(r => ({ name: r.name.trim(), price: r.price }));
+        if (!rows.length) { $("#shotErr").textContent = "Cargá al menos un producto con nombre y precio."; return; }
+        const c = db.chains[shotFor];
+        c.manualCatalog = rows; matchChain(c, rows); c.status = "capturas"; c.lastScan = new Date().toISOString(); c.note = `${rows.length} productos cargados desde capturas`;
+        if (!db.lastScrape) db.lastScrape = c.lastScan;
+        const n = Object.keys(c.matches).length;
+        shotFor = null; save(); flash = `${c.name}: se cargaron ${rows.length} productos y ${n} coinciden con los tuyos.`; render();
+      };
+    }
+    $("#compBtn").onclick = () => { collectCompetencia(); withBusy(async () => { db = await API.scanCompetitors(); const n = db.products.filter(p => db.chains.some(c => c.matches[p.id])).length; flash = `Análisis terminado: ${n} de ${db.products.length} productos tienen competencia.`; }); };
+    const nb = $("#nextBtn"); if (nb) nb.onclick = () => { collectCompetencia(); save(); if (db.setupDone) { flash = "Guardado."; render(); } else go("sugeridos"); };
+  }
+  if (adminTab === "sugeridos") {
+    $$('input[name="pm"]').forEach(r => r.onchange = () => { priceMode = r.value; render(); });
+    $$("th[data-col]").forEach(h => h.onclick = () => { const k = h.dataset.col; hiddenCols.has(k) ? hiddenCols.delete(k) : hiddenCols.add(k); render(); });
+    $$("[data-ov]").forEach(inp => inp.oninput = () => {
+      const p = db.products.find(x => x.id === inp.dataset.ov), z = E.allZones(db).find(x => x.id === inp.dataset.z), v = Number(inp.value);
+      if (!(v > 0)) return;
+      const s = E.suggest(db, p, z), ev = E.evaluate(db, p, v, s), id = `${p.id}--${z.id}`;
+      $(`[id="m-${id}"]`).textContent = pct(ev.margin);
+      $(`[id="d-${id}"]`).innerHTML = diff(v, p);
+      $(`[id="l-${id}"]`).innerHTML = `<span class="light l-${ev.light}">${LIGHT[ev.light]}</span>`;
+    });
+    $("#confirmPrices").onclick = () => {
+      const ov = {};
+      if (priceMode === "manual") {
+        // también los de productos plegados: se toman del estado guardado
+        ready().forEach(p => E.allZones(db).forEach(z => { const m = db.overrides[p.id] && db.overrides[p.id][z.id]; if (m) (ov[p.id] = ov[p.id] || {})[z.id] = m; }));
+        for (const inp of $$("[data-ov]")) {
+          const v = Number(inp.value); if (!(v > 0)) { $("#stepErr").textContent = "Hay un precio vacío o inválido."; inp.focus(); return; }
+          const p = db.products.find(x => x.id === inp.dataset.ov), z = E.allZones(db).find(x => x.id === inp.dataset.z);
+          if (v !== E.suggest(db, p, z).price) (ov[p.id] = ov[p.id] || {})[z.id] = v; else if (ov[p.id]) delete ov[p.id][z.id];
+        }
+      }
+      const was = db.setupDone; db.overrides = ov; db.setupDone = true; save();
+      go("panel"); flash = was ? "Precios guardados." : "Listo. Ya podés ver el panel, los clientes o entrar a la tienda de prueba."; render();
+    };
+  }
+  if (adminTab === "panel" && $("#prodSel")) {
+    $("#prodSel").onchange = e => { selProd = e.target.value; render(); };
+    $$("[data-calc]").forEach(b => b.onclick = e => { e.stopPropagation(); const [pid, zid] = b.dataset.calc.split("|"); openPopover(b, calcHtml(db.products.find(p => p.id === pid), E.allZones(db).find(z => z.id === zid))); });
+    $("#costLink").onclick = () => { focusAfter = "#pc-" + db.products.findIndex(p => p.id === selProd); go("tienda"); };
+  }
+  if (adminTab === "clientes") $$("[data-cust]").forEach(b => b.onclick = () => { openCustomer = openCustomer === b.dataset.cust ? null : b.dataset.cust; render(); });
+  if (adminTab === "exportar") $("#copyBtn").onclick = async () => {
+    try { await navigator.clipboard.writeText($("#copyArea").value); $("#copyMsg").textContent = "Copiado. Pegalo en Excel o Google Sheets."; }
+    catch { const t = $("#copyArea"); t.hidden = false; t.focus(); t.select(); $("#copyMsg").textContent = "Seleccioné la tabla: copiala con Ctrl+C."; }
+  };
+  if (adminTab === "datos") {
+    $("#saveBtn").onclick = () => {
+      const n = v => Number(v);
+      const P = { margenMin: n($("#pMargen").value) / 100, tope: n($("#pTope").value) / 100, costoPct: n($("#pCosto").value) / 100, maxAumento: n($("#pMax").value) / 100, umbralPerfil: n($("#pUmbral").value) };
+      if (Object.values(P).some(x => !Number.isFinite(x) || x < 0) || P.margenMin >= 0.9 || P.umbralPerfil >= 100) { $("#stepErr").textContent = "Revisá los valores: hay alguno fuera de rango."; return; }
+      db.params = P;
+      $$("[data-zf]").forEach(el => { db.zones[el.dataset.zf].factor = n(el.value) || db.zones[el.dataset.zf].factor; });
+      db.zones.forEach((z, i) => { const boxes = $$(`[data-zc="${i}"]`); if (boxes.length) z.chains = boxes.filter(x => x.checked).map(x => x.value); });
+      $$("[data-bz]").forEach(el => { db.barrios[el.dataset.bz].zoneId = el.value; });
+      save(); flash = "Guardado. Los precios se recalcularon."; render();
+    };
+    $("#resetBtn").onclick = () => { const s = E.clone(E.SEED); s.customers = E.clone(DEMO_CUSTOMERS); db = API.save(s); Object.keys(cart).forEach(k => delete cart[k]); go("tienda"); flash = "Se restableció el ejemplo. Empieza de nuevo la configuración."; render(); };
+  }
+}
+
+// ================= TIENDA DE PRUEBA =================
+// Simula la web de un cliente que tiene instalado el script de PrecioZona
+let actingAs = readStore("pz-as") || "yo";
+const cart = {};
+let cartOpen = false, cookieOpen = false, cookieReason = "", shipMode = "envio", shipLoc = "", checkoutStep = false, lastOrder = null, payMethod = "credito";
+
+function me() {
+  let c = db.customers.find(x => x.id === actingAs);
+  if (!c) { c = { id: "yo", name: "Vos (visitante real)", fictional: false, consent: null, locks: {}, signals: { visitas: 0, vistos: [], carritosAbandonados: 0 } }; db.customers.unshift(c); save(); }
+  return c;
+}
+// Lo que el navegador permite saber después de aceptar
+function collectSignals(c) {
+  const ua = navigator.userAgent;
+  const os = /iPhone|iPad/.test(ua) ? "iPhone/iPad (iOS)" : /Mac OS X/.test(ua) ? "Mac (macOS)" : /Android/.test(ua) ? "Android" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "Otro";
+  const nav = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : /Firefox\//.test(ua) ? "Firefox" : "Otro";
+  const ref = document.referrer || "";
+  const origen = /instagram|facebook/i.test(ref) ? "instagram" : /google/i.test(ref) ? "google" : /mail/i.test(ref) ? "email" : "directo";
+  Object.assign(c.signals, {
+    dispositivo: { tipo: /Mobi|Android|iPhone/.test(ua) ? "celular" : "computadora", os, navegador: nav, pantalla: `${screen.width} × ${screen.height}`, memoria: navigator.deviceMemory || null, nucleos: navigator.hardwareConcurrency || null },
+    idioma: navigator.language, zonaHoraria: Intl.DateTimeFormat().resolvedOptions().timeZone, origen,
+    hora: new Date().getHours(), visitas: (c.signals.visitas || 0) + 1
+  });
+}
+function myZone() {
+  if (shipLoc.startsWith("b:")) return db.barrios[+shipLoc.slice(2)].zoneId;
+  if (shipLoc.startsWith("p:")) return (db.pickups.find(p => "p:" + p.id === shipLoc) || {}).zoneId;
+  return me().signals.zonaEntrega || "estimado";
+}
+const priceFor = p => E.personalPrice(db, p, E.findZone(db, myZone()), me());
+
+function viewTienda() {
+  if (!db) return `<div class="gut"><div class="wrap page"><div class="alert">Para usar el simulador, primero iniciá sesión en el <a href="#admin">back-office</a>.</div></div></div>`;
+  if (!db.setupDone || !ready().length) return `<div class="gut"><div class="wrap page"><div class="alert">Primero terminá la configuración en el back-office.</div></div></div>`;
+  const c = me(), ok = c.consent === true;
+  const nCart = Object.values(cart).reduce((a, b) => a + b, 0);
+  const locOpts = (shipMode === "envio"
+    ? `<option value="">Elegí tu barrio</option>` + db.barrios.map((b, i) => ({ b, i })).sort((x, y) => x.b.name.localeCompare(y.b.name, "es")).map(({ b, i }) => `<option value="b:${i}">${esc(b.name)}</option>`).join("")
+    : `<option value="">Elegí una sucursal</option>` + db.pickups.map(p => `<option value="p:${p.id}">${esc(p.name)}</option>`).join(""));
+  return `<div class="demo-bar gut"><div class="wrap"><b>Simulador</b><label for="asSel">Navegar como</label>
+      <select id="asSel">${db.customers.map(x => `<option value="${esc(x.id)}" ${x.id === actingAs ? "selected" : ""}>${esc(x.name)}${x.fictional ? " (ficticio)" : ""}</option>`).join("")}</select>
+      <button id="resetCookies">Borrar mis cookies</button><span style="opacity:.75">Así se vería la web de ${esc(db.company.name)} con el script de PrecioZona.</span></div></div>
+    <div class="gut"><div class="wrap page" style="padding-top:0">
+      <div class="shop-head"><h1>Cremas corporales</h1><div class="sp"></div>
+        <div class="where"><span class="seg" id="shipSeg"><button data-ship="envio" class="${shipMode === "envio" ? "on" : ""}">Envío</button><button data-ship="retiro" class="${shipMode === "retiro" ? "on" : ""}">Retiro</button></span>
+          <select id="shipSel" aria-label="Barrio o sucursal">${locOpts}</select></div>
+        <button class="btn ghost cartbtn" id="cartBtn">Carrito ${nCart ? `<b>${nCart}</b>` : ""}</button></div>
+      ${!ok ? `<div class="alert">Aceptá las cookies para ver los precios y poder comprar. <button class="link" id="openCookie">Ver el aviso</button></div>` : ""}
+      <div class="cards">${ready().map(p => { const r = priceFor(p); return `<div class="pcard">
+        <div class="ph">${esc(p.name.replace(/^Crema (Corporal |Hidratante )?/, ""))}</div><h3>${esc(p.name)}</h3>
+        ${ok ? `<div class="pr num">${fmt(r.final)}</div>${r.locked ? `<div class="muted">Mismo precio que tu compra anterior</div>` : ""}` : `<div class="lock">Precio disponible al aceptar las cookies</div>`}
+        <button class="btn" data-add="${esc(p.id)}">Agregar al carrito</button></div>`; }).join("")}</div>
+    </div></div>
+    ${cartOpen ? viewCart() : ""}
+    ${cookieOpen ? viewCookie() : ""}`;
+}
+function viewCart() {
+  const c = me(), ok = c.consent === true;
+  const items = Object.entries(cart).filter(([, q]) => q > 0).map(([id, q]) => ({ p: db.products.find(x => x.id === id), q }));
+  const total = ok ? items.reduce((a, { p, q }) => a + priceFor(p).final * q, 0) : 0;
+  if (lastOrder) return `<div class="drawer" role="dialog" aria-label="Pedido confirmado"><h2>Pedido confirmado</h2><p>Número <b>${esc(lastOrder.id)}</b> · total <b>${fmt(lastOrder.total)}</b></p>
+    <p class="muted">Si volvés a comprar estos productos, vas a pagar el mismo precio.</p><button class="btn full" id="closeCart">Seguir comprando</button></div>`;
+  return `<div class="drawer" role="dialog" aria-label="Carrito"><h2>Carrito</h2>
+    ${items.length ? items.map(({ p, q }) => `<div class="line"><span>${esc(p.name)} × ${q}</span><span class="num">${ok ? fmt(priceFor(p).final * q) : "—"}</span></div>`).join("") : `<p class="muted">El carrito está vacío.</p>`}
+    ${items.length && ok ? `<div class="line"><b>Total</b><b class="num">${fmt(total)}</b></div>` : ""}
+    ${checkoutStep && ok ? `<label class="muted" for="paySel" style="display:block;margin-top:14px">Medio de pago</label>
+      <select id="paySel" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--surface)">${[["credito", "Tarjeta de crédito"], ["debito", "Tarjeta de débito"], ["transferencia", "Transferencia"], ["efectivo", "Efectivo en sucursal"]].map(([v, l]) => `<option value="${v}" ${v === payMethod ? "selected" : ""}>${l}</option>`).join("")}</select>
+      <p class="muted">${shipLoc ? `Entrega: ${esc(shipLoc.startsWith("b:") ? db.barrios[+shipLoc.slice(2)].name : db.pickups.find(p => "p:" + p.id === shipLoc).name)}` : "Elegí barrio o sucursal arriba antes de pagar."}</p>
+      <div class="err" id="payErr"></div>` : ""}
+    <div class="actions">${items.length ? `<button class="btn" id="checkoutBtn">${checkoutStep && ok ? "Pagar" : "Finalizar compra"}</button>` : ""}<button class="btn ghost" id="closeCart">Cerrar</button></div></div>`;
+}
+let termsOpen = false;
+function viewCookie() {
+  return `<div class="scrim" role="dialog" aria-modal="true" aria-label="Aviso de cookies"><div class="cookie">
+    <h3>Usamos cookies</h3>
+    <p style="margin:0">${cookieReason || `Usamos cookies propias y de terceros para que el sitio funcione, recordar tu carrito y mejorar tu experiencia de compra. Para ver precios y comprar es necesario aceptarlas.`}</p>
+    <p style="margin:8px 0 0;font-size:13px"><button class="link" id="termsBtn" aria-expanded="${termsOpen}">${termsOpen ? "Ocultar" : "Ver"} términos y condiciones de cookies</button></p>
+    ${termsOpen ? `<div class="terms">
+      <p><b>Términos y condiciones de uso de cookies de ${esc(db.company.name)}.</b> Al aceptar, autorizás a ${esc(db.company.name)} y a su proveedor tecnológico a almacenar cookies en tu dispositivo y a tratar los datos que se detallan, conforme a la Ley N° 18.331 de Protección de Datos Personales.</p>
+      <p><b>1. Cookies técnicas.</b> Necesarias para el funcionamiento del sitio, el carrito y la sesión.</p>
+      <p><b>2. Cookies de preferencias.</b> Guardan tu barrio o sucursal de entrega y tus elecciones anteriores.</p>
+      <p><b>3. Cookies de análisis y personalización.</b> Recolectan: barrio o sucursal de entrega, ubicación aproximada según tu conexión, ubicación del dispositivo cuando la autorizás, zonas desde las que accedés al sitio, compras realizadas en esta tienda y montos, productos visitados, carritos no finalizados, cantidad y horario de visitas, tipo de dispositivo, sistema operativo, navegador, pantalla, memoria y procesador, idioma, zona horaria, sitio de origen de la visita y medio de pago elegido. Estos datos se usan para elaborar un perfil de compra y <b>personalizar los precios y ofertas que se te muestran</b>, que pueden variar entre usuarios. El precio que se muestra antes de confirmar la compra es el precio final.</p>
+      <p><b>4. Conservación y derechos.</b> Los datos se conservan mientras mantengas la aceptación. Podés retirarla en cualquier momento borrando las cookies, y ejercer tus derechos de acceso, rectificación y supresión escribiendo a ${esc(db.company.name.toLowerCase().replace(/\s+/g, ""))}@ejemplo.com.uy.</p>
+      <p><b>5. Rechazo.</b> Si no aceptás las cookies de análisis y personalización, podés navegar el catálogo, pero no ver precios ni finalizar compras, porque el precio se calcula para cada usuario.</p></div>` : ""}
+    <div class="actions"><button class="btn ghost" id="rejectCk">Rechazar</button><button class="btn" id="acceptCk">Aceptar</button></div></div></div>`;
+}
+function bindTienda() {
+  if (!$("#asSel")) return;
+  const c = me();
+  $("#asSel").onchange = e => { actingAs = e.target.value; writeStore("pz-as", actingAs); Object.keys(cart).forEach(k => delete cart[k]); shipLoc = ""; checkoutStep = false; lastOrder = null; cartOpen = false; cookieOpen = me().consent == null; render(); };
+  $("#resetCookies").onclick = () => { const x = me(); x.consent = null; if (!x.fictional) x.signals = { visitas: 0, vistos: [], carritosAbandonados: 0 }; x.locks = x.fictional ? x.locks : {}; save(); cookieOpen = true; cookieReason = ""; render(); };
+  const oc = $("#openCookie"); if (oc) oc.onclick = () => { cookieOpen = true; render(); };
+  $$("[data-ship]").forEach(b => b.onclick = () => { shipMode = b.dataset.ship; shipLoc = ""; render(); });
+  const ss = $("#shipSel"); ss.value = shipLoc; ss.onchange = () => { shipLoc = ss.value; if (me().consent) { me().signals.zonaEntrega = myZone(); save(); } render(); };
+  $$("[data-add]").forEach(b => b.onclick = () => { const id = b.dataset.add; cart[id] = (cart[id] || 0) + 1; if (c.consent) { const v = c.signals.vistos || (c.signals.vistos = []); if (!v.includes(id)) v.push(id); save(); } lastOrder = null; render(); });
+  $("#cartBtn").onclick = () => { cartOpen = true; lastOrder = null; render(); };
+  const cc = $("#closeCart"); if (cc) cc.onclick = () => {
+    if (!lastOrder && Object.values(cart).some(q => q > 0) && checkoutStep && me().consent) { me().signals.carritosAbandonados = (me().signals.carritosAbandonados || 0) + 1; save(); }
+    cartOpen = false; checkoutStep = false; if (lastOrder) lastOrder = null; render();
+  };
+  const ps = $("#paySel"); if (ps) ps.onchange = () => { payMethod = ps.value; };
+  const cb = $("#checkoutBtn"); if (cb) cb.onclick = () => {
+    const x = me();
+    if (!x.consent) { cookieOpen = true; cookieReason = "Para comprar necesitamos calcular tu precio, y para eso tenés que aceptar las cookies."; render(); return; }
+    if (!checkoutStep) { checkoutStep = true; render(); return; }
+    if (!shipLoc && !x.signals.zonaEntrega) { $("#payErr").textContent = "Elegí tu barrio o una sucursal arriba."; return; }
+    const items = Object.entries(cart).filter(([, q]) => q > 0);
+    let total = 0;
+    items.forEach(([id, q]) => { const p = db.products.find(y => y.id === id), r = priceFor(p); total += r.final * q; x.locks[id] = x.locks[id] || r.final; });
+    x.signals.pago = payMethod; x.signals.zonaEntrega = myZone();
+    const order = { id: "PZ-" + (1001 + db.orders.length), date: new Date().toISOString(), customerId: x.id, total, items: items.map(([id, q]) => ({ id, q })) };
+    db.orders.unshift(order); save();
+    Object.keys(cart).forEach(k => delete cart[k]); checkoutStep = false; lastOrder = order; render();
+  };
+  if (cookieOpen) {
+    $("#termsBtn").onclick = () => { termsOpen = !termsOpen; render(); };
+    $("#acceptCk").onclick = () => { const x = me(); x.consent = true; x.consentDate = new Date().toISOString(); if (!x.fictional) collectSignals(x); if (shipLoc) x.signals.zonaEntrega = myZone(); save(); cookieOpen = false; cookieReason = ""; render(); };
+    $("#rejectCk").onclick = () => { const x = me(); x.consent = false; save(); cookieOpen = false; cookieReason = ""; render(); };
+  }
+}
+
+// ================= RUTEO =================
+function render() {
+  const h = location.hash.slice(1) || "admin";
+  $$("#nav a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + h));
+  closePopover();
+  if (h === "tienda") { $("#app").innerHTML = viewTienda(); bindTienda(); return; }
+  $("#app").innerHTML = viewAdmin(); bindAdmin();
+}
+window.addEventListener("hashchange", () => {
+  flash = "";
+  if (location.hash === "#tienda" && db) { cookieOpen = me().consent == null; }
+  render(); window.scrollTo(0, 0);
+});
+(async () => {
+  if (SERVER) { try { if (await Remote.session()) { db = await Remote.load(); adminOk = true; } } catch (e) {} }
+  if (location.hash === "#tienda" && db) cookieOpen = me().consent == null;
+  render();
+})();
+</script>
+<!--SERVER-START--></body>
+</html><!--SERVER-END-->
