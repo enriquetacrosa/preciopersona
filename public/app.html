@@ -346,6 +346,7 @@ window.addEventListener("scroll", closePopover, { passive: true });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closePopover(); });
 
 // ================= BACK-OFFICE =================
+let wizard = false; const inSetup = () => !db.setupDone || wizard;
 let adminOk = false, adminTab = "panel", selProd = null, priceMode = null, busy = false, flash = "", focusAfter = null;
 const openAcc = new Set();             // acordeones abiertos
 const hiddenCols = new Set();          // columnas ocultas en Precios de venta
@@ -381,7 +382,7 @@ function viewLogin() {
 }
 function viewAdmin() {
   if (!adminOk) return viewLogin();
-  const setup = !db.setupDone;
+  const setup = inSetup();
   if (setup && !STEPS.some(([k]) => k === adminTab)) adminTab = "tienda";
   const idx = STEPS.findIndex(([k]) => k === adminTab);
   const saveBar = SERVER ? `<div class="savebar"><span class="sp"><b>Tus datos se guardan solos</b> en el servidor y en esta compu. Igual, guardá un respaldo antes de actualizar.</span>
@@ -394,9 +395,9 @@ function viewAdmin() {
       <div class="muted" style="font-size:14px">Después, en tu web, cada comprador que acepta las cookies ve su precio: el de su zona, más su ajuste personal, más el de su barrio al comprar. Lo hacés una sola vez; después trabajás desde el back-office.</div>
       <details><summary>Ver cómo funciona completo</summary>${adminComo()}</details></div>` : "";
   const head = setup
-    ? `<h1>Configuración inicial</h1><p class="lead">Tres pasos y queda todo cargado.</p>${intro}
+    ? `<h1>Configuración inicial</h1><p class="lead">Tres pasos y queda todo cargado.${db.setupDone ? ` <button class="link" id="exitWizard">Volver al back-office</button>` : ""}</p>${intro}
        <div class="steps">${STEPS.map(([k, l], i) => `<div class="stp ${i === idx ? "on" : i < idx ? "done" : ""}"><b>${i < idx ? "✓" : i + 1}</b>${l}</div>`).join("")}<div class="stp"><b>4</b>Back-office</div></div>`
-    : `<h1>Back-office · ${esc(E.companyName(db))}</h1>
+    : `<div class="row" style="justify-content:space-between;align-items:center;margin:0"><h1 style="margin:0">Back-office · ${esc(E.companyName(db))}</h1><button class="btn small ghost" id="openWizard">Ver configuración inicial (3 pasos)</button></div>
        <div class="tabs" id="tabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${k === adminTab ? "on" : ""}">${l}</button>`).join("")}</div>`;
   const body = { panel: adminPanel, tienda: adminTienda, competencia: adminCompetencia, sugeridos: adminSugeridos, clientes: adminClientes, exportar: adminExportar, datos: adminDatos, como: adminComo }[adminTab]();
   return `<div class="gut"><div class="wrap page">${saveBar}${head}${flash ? `<div class="msg">${esc(flash)}</div>` : ""}${body}</div></div>`;
@@ -430,7 +431,7 @@ function adminTienda() {
         <td class="n"><input type="number" id="pp-${i}" data-pi="${i}" data-k="currentPrice" value="${p.currentPrice ?? ""}" aria-label="Precio actual de ${esc(p.name)}"></td>
         <td class="n"><input type="number" id="pc-${i}" data-pi="${i}" data-k="cost" value="${p.cost ?? ""}" placeholder="≈ ${Math.round((p.currentPrice || 0) * db.params.costoPct)}" aria-label="Costo de ${esc(p.name)}"></td></tr>`).join("")}</tbody></table></div>
       <div class="note">Si no cargás el costo, se estima como el ${Math.round(db.params.costoPct * 100)}% del precio actual.</div></div>` : ""}
-    <div class="row">${db.products.length ? `<button class="btn ${db.setupDone ? "" : "ghost"}" id="nextBtn">${db.setupDone ? "Guardar cambios" : "Siguiente: competencia →"}</button>` : ""}<span class="err" id="stepErr"></span></div>`;
+    <div class="row">${db.products.length ? `<button class="btn ${!inSetup() ? "" : "ghost"}" id="nextBtn">${!inSetup() ? "Guardar cambios" : "Siguiente: competencia →"}</button>` : ""}<span class="err" id="stepErr"></span></div>`;
 }
 function collectTienda() {
   const cn = $("#compName"); if (cn) db.company.name = cn.value.trim();
@@ -495,7 +496,7 @@ function adminCompetencia() {
           <td>${m.kind === "mismo" ? `<span class="tag tag-mismo">Mismo producto</span>` : m.kind === "tamano" ? `<span class="tag tag-mismo">Mismo producto, otro tamaño</span>` : `<span class="tag tag-similar">Similar a ${esc(p.name.split(" ").slice(0, 4).join(" "))}…</span>`}</td>
           <td class="n">${fmt(m.price)}</td><td class="n">${fmt(m.equivPrice)}${m.sizeAdjusted ? ` <span class="tag tag-sim">ajustado</span>` : ""}${m.sizeNote ? `<div class="note" style="white-space:normal;max-width:240px;margin-left:auto">${esc(m.sizeNote)}</div>` : ""}</td></tr>` : `<tr><td class="nw">${esc(c.name)}</td><td colspan="4" class="muted">${c.status === "error" ? esc(c.note) : "No vende este producto ni uno similar"}</td></tr>`; }).join("")}
         </tbody></table></div></div>` : ""}</div>`; }).join("")}` : ""}
-    <div class="row" style="margin-top:12px">${!db.setupDone ? `<button class="btn ghost" id="backBtn">← Tu tienda</button>` : ""}${db.lastScrape ? `<button class="btn ${db.setupDone ? "" : "ghost"}" id="nextBtn">${db.setupDone ? "Guardar cambios" : "Siguiente: precios de venta →"}</button>` : ""}<span class="err" id="stepErr"></span></div>`;
+    <div class="row" style="margin-top:12px">${inSetup() ? `<button class="btn ghost" id="backBtn">← Tu tienda</button>` : ""}${db.lastScrape ? `<button class="btn ${!inSetup() ? "" : "ghost"}" id="nextBtn">${!inSetup() ? "Guardar cambios" : "Siguiente: precios de venta →"}</button>` : ""}<span class="err" id="stepErr"></span></div>`;
 }
 function collectCompetencia() { $$("[data-cs]").forEach(el => { db.chains[el.dataset.cs].site = el.value.trim(); }); }
 
@@ -525,7 +526,7 @@ function adminSugeridos() {
           ${td("dif", `<span id="d-${id}">${diff(val, p)}</span>`, 1)}${td("margen", `<span id="m-${id}">${pct(ev.margin)}</span>`, 1)}
           ${td("sem", `<span id="l-${id}">${lightHtml(ev)}</span>`)}</tr>`; }).join("")}
       </tbody></table></div></div></div>`; }).join("")}
-    <div class="row" style="margin-top:12px">${!db.setupDone ? `<button class="btn ghost" id="backBtn">← Competencia</button>` : ""}<button class="btn" id="confirmPrices">${db.setupDone ? "Guardar precios" : "Confirmar y abrir el back-office"}</button><span class="err" id="stepErr"></span></div>`;
+    <div class="row" style="margin-top:12px">${inSetup() ? `<button class="btn ghost" id="backBtn">← Competencia</button>` : ""}<button class="btn" id="confirmPrices">${!inSetup() ? "Guardar precios" : "Confirmar y abrir el back-office"}</button><span class="err" id="stepErr"></span></div>`;
 }
 
 // ---------- Panel ----------
@@ -683,6 +684,8 @@ function bindAdmin() {
   $$("[data-go]").forEach(a => a.onclick = () => go(a.dataset.go));
   $$("[data-acc]").forEach(b => b.onclick = () => { const k = b.dataset.acc; if (showAll) { showAll = false; $$("[data-acc]").forEach(x => openAcc.add(x.dataset.acc)); } openAcc.has(k) ? openAcc.delete(k) : openAcc.add(k); render(); });
   const ta = $("#toggleAll"); if (ta) ta.onclick = () => { showAll = !showAll; if (!showAll) openAcc.clear(); render(); };
+  const ow = $("#openWizard"); if (ow) ow.onclick = () => { wizard = true; flash = ""; go("tienda"); };
+  const ew = $("#exitWizard"); if (ew) ew.onclick = () => { wizard = false; flash = ""; go("panel"); };
   const ri = $("#restoreInput");
   if (ri) ri.onchange = async () => {
     const f = ri.files[0]; if (!f) return;
@@ -698,7 +701,7 @@ function bindAdmin() {
     const scanMsg = url => { const b = db.company.blocked; return b ? `Se cargaron ${b.total - b.count} de ${b.total} productos de ${host(url)}. El resto está bloqueado por tu tienda.` : `Se cargaron ${db.products.length} productos de ${host(url)}.`; };
     $("#scanBtn").onclick = () => { const url = $("#siteUrl").value.trim(); collectTienda(); withBusy(async () => { db = await API.scanCompany(url); flash = scanMsg(url); }); };
     const ub = $("#unblockBtn"); if (ub) ub.onclick = () => { collectTienda(); withBusy(async () => { db.company.unblocked = true; db = await API.scanCompany(db.company.site); flash = db.company.blocked ? "Todavía hay productos bloqueados. Revisá la configuración de tu web." : "Acceso habilitado. " + scanMsg(db.company.site); }); };
-    const nb = $("#nextBtn"); if (nb) nb.onclick = () => { collectTienda(); save(); if (db.setupDone) { flash = "Guardado."; render(); } else go("competencia"); };
+    const nb = $("#nextBtn"); if (nb) nb.onclick = () => { collectTienda(); save(); if (!inSetup()) { flash = "Guardado."; render(); } else go("competencia"); };
     if (focusAfter) { const el = $(focusAfter); focusAfter = null; if (el) { el.scrollIntoView({ block: "center" }); el.focus(); el.select(); } }
   }
   if (adminTab === "competencia") {
@@ -748,7 +751,7 @@ function bindAdmin() {
       };
     }
     $("#compBtn").onclick = () => { collectCompetencia(); withBusy(async () => { db = await API.scanCompetitors(); const n = db.products.filter(p => db.chains.some(c => c.matches[p.id])).length; flash = `Análisis terminado: ${n} de ${db.products.length} productos tienen competencia.`; }); };
-    const nb = $("#nextBtn"); if (nb) nb.onclick = () => { collectCompetencia(); save(); if (db.setupDone) { flash = "Guardado."; render(); } else go("sugeridos"); };
+    const nb = $("#nextBtn"); if (nb) nb.onclick = () => { collectCompetencia(); save(); if (!inSetup()) { flash = "Guardado."; render(); } else go("sugeridos"); };
   }
   if (adminTab === "sugeridos") {
     $$('input[name="pm"]').forEach(r => r.onchange = () => { priceMode = r.value; render(); });
@@ -772,7 +775,7 @@ function bindAdmin() {
           if (v !== E.suggest(db, p, z).price) (ov[p.id] = ov[p.id] || {})[z.id] = v; else if (ov[p.id]) delete ov[p.id][z.id];
         }
       }
-      const was = db.setupDone; db.overrides = ov; db.setupDone = true; save();
+      const was = !inSetup(); db.overrides = ov; db.setupDone = true; wizard = false; save();
       go("panel"); flash = was ? "Precios guardados." : "Listo. Ya podés ver el panel, los clientes o entrar a la tienda de prueba."; render();
     };
   }
