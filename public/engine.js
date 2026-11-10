@@ -5,6 +5,16 @@
 (function (root) {
   const E = {};
 
+  // Ajuste fino de cada barrio dentro de su zona, en % (supuesto del ejemplo, se cambia en Configuración)
+  const BARRIO_AJUSTE = {
+    "Carrasco": 2, "Carrasco Norte": -1, "Punta Gorda": 0,
+    "Punta Carretas": 2, "Pocitos": 1, "Parque Rodó": 0, "Buceo": 0, "Parque Batlle, Villa Dolores": -1, "Malvín": -1,
+    "Prado, Nueva Savona": 2, "Cordón": 1, "Tres Cruces": 1, "Ciudad Vieja": 0, "Centro": 0, "Barrio Sur": -1, "Palermo": 0,
+    "La Blanqueada": 1, "Larrañaga": 0, "Unión": -1, "Aguada": -1, "Reducto": -1, "Jacinto Vera": 0, "Brazo Oriental": -1,
+    "Malvín Norte": 1, "Colón Centro y Noroeste": 1, "Sayago": 1, "Belvedere": 0, "La Teja": -1, "Cerro": -2,
+    "Casabó, Pajas Blancas": -3, "Casavalle": -3, "Piedras Blancas": -2, "Las Acacias": -2, "Bañados de Carrasco": -1
+  };
+
   E.SEED = {
     setupDone: false,
     company: { name: "Farmashop", site: "https://tienda.farmashop.com.uy", lastScan: null },
@@ -20,10 +30,7 @@
       { id: "costa-este", name: "Costa Este", dept: "Montevideo", chains: ["San Roque", "Farmacity"], factor: 0.98, days: "24 h", nivel: 1.0 },
       { id: "costa", name: "Costa", dept: "Montevideo", chains: ["San Roque", "Farmacity"], factor: 0.95, days: "24 h", nivel: 0.8 },
       { id: "centro", name: "Centro", dept: "Montevideo", chains: ["Pigalle", "San Roque"], factor: 0.98, days: "24 h", nivel: 0.5 },
-      { id: "oeste-norte", name: "Oeste y Norte", dept: "Montevideo", chains: ["Pigalle"], factor: 0.82, days: "48 h", nivel: 0.2 },
-      { id: "canelones", name: "Ciudad de la Costa", dept: "Canelones", chains: ["San Roque"], factor: 0.90, days: "48 h", nivel: 0.6 },
-      { id: "maldonado", name: "Punta del Este", dept: "Maldonado", chains: ["San Roque"], factor: 1.04, days: "48 h", nivel: 0.9 },
-      { id: "tacuarembo", name: "Tacuarembó", dept: "Tacuarembó", chains: [], factor: 1.0, days: "3 a 4 días", nivel: 0.3 }
+      { id: "oeste-norte", name: "Oeste y Norte", dept: "Montevideo", chains: ["Pigalle"], factor: 0.82, days: "48 h", nivel: 0.2 }
     ],
     barrios: [
       ["Ciudad Vieja","centro"],["Centro","centro"],["Barrio Sur","centro"],["Cordón","centro"],["Palermo","centro"],
@@ -40,15 +47,14 @@
       ["Tres Cruces","centro"],["Brazo Oriental","centro"],["Sayago","oeste-norte"],["Conciliación","oeste-norte"],["Belvedere","oeste-norte"],
       ["Nuevo París","oeste-norte"],["Tres Ombúes, Victoria","oeste-norte"],["Paso de la Arena","oeste-norte"],["Colón Sureste, Abayubá","oeste-norte"],
       ["Colón Centro y Noroeste","oeste-norte"],["Lezica, Melilla","oeste-norte"],["Villa García, Manga Rural","oeste-norte"],["Manga","oeste-norte"]
-    ].map(([name, zoneId]) => ({ name, zoneId })),
+    ].map(([name, zoneId]) => ({ name, zoneId, ajuste: BARRIO_AJUSTE[name] || 0 })),
     pickups: [
       { id: "s-carrasco", name: "Sucursal Carrasco", zoneId: "costa-este" },
       { id: "s-pocitos", name: "Sucursal Pocitos", zoneId: "costa" },
       { id: "s-centro", name: "Sucursal Centro", zoneId: "centro" },
       { id: "s-cerro", name: "Sucursal Cerro", zoneId: "oeste-norte" },
-      { id: "s-costa", name: "Sucursal Ciudad de la Costa", zoneId: "canelones" },
-      { id: "s-pde", name: "Sucursal Punta del Este", zoneId: "maldonado" },
-      { id: "s-tacua", name: "Sucursal Tacuarembó", zoneId: "tacuarembo" }
+      { id: "s-tres-cruces", name: "Sucursal Tres Cruces", zoneId: "centro" },
+      { id: "s-malvin", name: "Sucursal Malvín", zoneId: "costa" }
     ],
     overrides: {},
     customers: [],
@@ -59,7 +65,7 @@
   // Clientes ficticios para la demo
   E.DEMO_CUSTOMERS = [
     { id: "lucia", name: "Lucía", fictional: true, consent: true, locks: {},
-      signals: { zonaEntrega: "costa-este", zonasFrecuentes: ["costa-este", "costa", "maldonado"], comprasPrevias: 9, ticketPrevio: 2400,
+      signals: { zonaEntrega: "costa-este", zonasFrecuentes: ["costa-este", "costa"], comprasPrevias: 9, ticketPrevio: 2400,
         vistos: ["crema-sebamed-corporal-200-ml", "crema-hidratante-cerave-corporal-454-g"], dispositivo: { tipo: "celular", os: "iPhone (iOS 18)", navegador: "Safari", pantalla: "430 × 932", memoria: null, nucleos: 6 },
         pago: "credito", origen: "instagram", hora: 11, carritosAbandonados: 0, visitas: 23, departamentoIP: "Montevideo", idioma: "es-UY" } },
     { id: "sofia", name: "Sofía", fictional: true, consent: true, locks: {},
@@ -91,31 +97,47 @@
   };
   E.tokens = name => E.norm(name).replace(/(\d+(?:[.,]\d+)?)\s*(ml|cc|l|lt|g|gr|grs|kg)\b/g, " ")
     .split(/[^a-z0-9]+/).filter(t => t && !STOP.has(t) && !/^\d+$/.test(t));
+  // Une palabras partidas: si un lado dice "urearepair" y el otro "urea repair", se toman como iguales
+  const joinCompounds = (arr, other) => {
+    const out = [];
+    for (let i = 0; i < arr.length; i++) {
+      if (i + 1 < arr.length && other.has(arr[i] + arr[i + 1])) { out.push(arr[i] + arr[i + 1]); i++; } else out.push(arr[i]);
+    }
+    return out;
+  };
   E.similarity = (a, b) => {
-    const A = new Set(E.tokens(a)), B = new Set(E.tokens(b));
+    let ta = E.tokens(a), tb = E.tokens(b);
+    tb = joinCompounds(tb, new Set(ta)); ta = joinCompounds(ta, new Set(tb));
+    const A = new Set(ta), B = new Set(tb);
     const w = t => GENERIC.has(t) ? 0.5 : 1;
     let inter = 0, uni = 0;
     new Set([...A, ...B]).forEach(t => { uni += w(t); if (A.has(t) && B.has(t)) inter += w(t); });
     return uni ? inter / uni : 0;
   };
-  // Mejor coincidencia de un producto propio dentro del catálogo de un competidor
+  const fmtN = n => "$ " + Math.round(n).toLocaleString("es-UY");
+  // Mejor coincidencia de un producto propio dentro del catálogo de un competidor.
+  // kind: "mismo" (mismo producto y tamaño), "tamano" (mismo producto, otro tamaño), "similar"
   E.bestMatch = (product, catalog) => {
     let best = null;
     const sa = E.size(product.name);
     catalog.forEach(item => {
       const score = E.similarity(product.name, item.name);
       const sb = E.size(item.name);
-      const sameSize = sa && sb && sa.unit === sb.unit && Math.abs(sa.value - sb.value) / sa.value < 0.05;
+      const comparable = sa && sb && sa.unit === sb.unit;
+      const sameSize = comparable && Math.abs(sa.value - sb.value) / sa.value < 0.05;
       let kind = null;
       if (score >= 0.75 && (sameSize || (!sa && !sb))) kind = "mismo";
+      else if (score >= 0.75 && comparable) kind = "tamano";
       else if (score >= 0.4) kind = "similar";
       if (!kind) return;
-      const rank = (kind === "mismo" ? 1 : 0) + score;
+      const rank = ({ mismo: 2, tamano: 1, similar: 0 })[kind] + score;
       if (!best || rank > best.rank) {
-        // Precio equivalente: si el tamaño es distinto, se lleva al tamaño del producto propio
-        const equiv = sa && sb && sa.unit === sb.unit && !sameSize ? item.price * sa.value / sb.value : item.price;
-        const sizeNote = !sa || !sb ? "sin tamaño para comparar" : sa.unit !== sb.unit ? "tamaños no comparables (ml y g)" : sameSize ? "" : `llevado a ${sa.value} ${sa.unit}`;
-        best = { rank, kind, score: Math.round(score * 100) / 100, name: item.name, url: item.url || "", price: item.price, equivPrice: Math.round(equiv), sizeNote, simulated: !!item.simulated };
+        // Si el tamaño es distinto, el precio se lleva proporcionalmente al tamaño del producto propio
+        const equiv = comparable && !sameSize ? item.price * sa.value / sb.value : item.price;
+        const sizeNote = !sa || !sb ? "Sin tamaño para comparar: se usa el precio tal cual"
+          : sa.unit !== sb.unit ? "Tamaños no comparables (ml y g): se usa el precio tal cual"
+          : sameSize ? "" : `Ajustado por tamaño: ${fmtN(item.price)} por ${sb.value} ${sb.unit} → ${fmtN(equiv)} por ${sa.value} ${sa.unit}`;
+        best = { rank, kind, score: Math.round(score * 100) / 100, name: item.name, url: item.url || "", price: item.price, equivPrice: Math.round(equiv), sizeAdjusted: !!(comparable && !sameSize), sizeNote, simulated: !!item.simulated };
       }
     });
     if (best) delete best.rank;
@@ -123,7 +145,7 @@
   };
 
   // ================= PRECIO POR ZONA =================
-  E.estZone = db => ({ id: "estimado", name: "Sin zona elegida", dept: "Montevideo", chains: db.chains.map(c => c.name), factor: 1, days: "24 a 48 h", nivel: 0.5, estimated: true });
+  E.estZone = db => ({ id: "estimado", name: "Sin barrio elegido", dept: "Montevideo", chains: db.chains.map(c => c.name), factor: 1, days: "24 a 48 h", nivel: 0.5, estimated: true });
   E.allZones = db => [...db.zones, E.estZone(db)];
   E.findZone = (db, id) => db.zones.find(z => z.id === id) || E.estZone(db);
   E.costOf = (db, p) => Number(p.cost) > 0 ? Number(p.cost) : (Number(p.currentPrice) > 0 ? Number(p.currentPrice) * db.params.costoPct : null);
@@ -225,26 +247,40 @@
     return { scores: sc, index, adj };
   };
 
-  // Precio final para una persona: precio de su zona + ajuste personal.
-  // Si ya compró ese producto, se le mantiene el precio de la primera compra.
-  E.personalPrice = (db, p, zone, c) => {
+  // Precio final, en 3 pasos:
+  // 1) precio base de la zona  2) ajuste personal (perfil)  3) ajuste fino del barrio, cuando ya se conoce
+  // Si la persona ya compró ese producto, se le mantiene el precio de la primera compra.
+  E.personalPrice = (db, p, zone, c, barrio) => {
     const z = E.current(db, p, zone);
-    if (!c || !c.consent) return { ...z, personal: null, final: null, locked: false };
+    if (!c || !c.consent) return { ...z, personal: null, final: null, locked: false, barrioAdj: 0, barrio: null };
     const lock = c.locks && c.locks[p.id];
-    if (lock) return { ...z, personal: E.profile(db, c), final: lock, locked: true };
     const pr = E.profile(db, c);
-    return { ...z, personal: pr, final: E.round9(z.price * (1 + pr.adj)), locked: false };
+    if (lock) return { ...z, personal: pr, final: lock, locked: true, barrioAdj: 0, barrio: barrio ? barrio.name : null };
+    const afterPerson = z.price * (1 + pr.adj);
+    const ba = barrio ? (Number(barrio.ajuste) || 0) / 100 : 0;
+    return { ...z, personal: pr, afterPerson: E.round9(afterPerson), barrioAdj: ba, barrio: barrio ? barrio.name : null, final: E.round9(afterPerson * (1 + ba)), locked: false };
+  };
+  // Zona que se usa antes de que la persona elija barrio: su zona habitual, o donde se conectó, o "sin barrio"
+  E.knownZone = (db, c) => {
+    const s = (c && c.signals) || {};
+    return s.zonaEntrega || (s.zonasFrecuentes && s.zonasFrecuentes[s.zonasFrecuentes.length - 1]) || "estimado";
+  };
+  // "b:<n°>" = barrio de envío · "p:<id>" = sucursal de retiro (las sucursales no tienen ajuste de barrio)
+  E.locInfo = (db, loc) => {
+    if (typeof loc !== "string") return null;
+    if (loc.startsWith("b:")) { const b = db.barrios[+loc.slice(2)]; return b ? { zoneId: b.zoneId, label: b.name, barrio: b } : null; }
+    if (loc.startsWith("p:")) { const p = db.pickups.find(x => "p:" + x.id === loc); return p ? { zoneId: p.zoneId, label: p.name, barrio: null } : null; }
+    return null;
   };
 
   E.freshDb = () => { const s = E.clone(E.SEED); s.customers = E.clone(E.DEMO_CUSTOMERS); return s; };
 
   // Ubicación del dispositivo → zona de precio más cercana (punto de referencia aproximado de cada zona)
-  E.ZONE_POINTS = { "costa-este": [-34.885, -56.06], "costa": [-34.911, -56.155], "centro": [-34.903, -56.185], "oeste-norte": [-34.86, -56.23],
-    "canelones": [-34.82, -55.95], "maldonado": [-34.94, -54.94], "tacuarembo": [-31.72, -55.98] };
+  E.ZONE_POINTS = { "costa-este": [-34.885, -56.06], "costa": [-34.911, -56.155], "centro": [-34.903, -56.185], "oeste-norte": [-34.86, -56.23] };
   E.zoneFromCoords = (lat, lon) => {
     let best = null, bd = Infinity;
     Object.entries(E.ZONE_POINTS).forEach(([id, [a, b]]) => { const d = (a - lat) ** 2 + (b - lon) ** 2; if (d < bd) { bd = d; best = id; } });
-    return bd < 1.5 ? best : null; // fuera de Uruguay: sin zona
+    return bd < 0.02 ? best : null; // fuera de Montevideo: sin zona
   };
 
   // Planilla de precios por zona

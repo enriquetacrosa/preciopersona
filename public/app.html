@@ -338,7 +338,7 @@ const LIGHT_TXT = { verde: "Competitivo y con margen", amarillo: "Más caro que 
 const BASIS = { zona: "la más barata de la zona", promedio: "promedio de la competencia (no hay cadenas en esta zona)", propio: "tu precio actual (no se encontró competencia)" };
 const STEPS = [["tienda", "Tu tienda"], ["competencia", "Competencia"], ["sugeridos", "Precios de venta"]];
 const TABS = [["panel", "Panel"], ["tienda", "Productos"], ["competencia", "Competencia"], ["sugeridos", "Precios de venta"], ["clientes", "Clientes"], ["exportar", "Exportar"], ["datos", "Configuración"], ["como", "Cómo funciona"]];
-const zoneLabel = z => z.estimated ? "Sin zona elegida" : z.name;
+const zoneLabel = z => z.estimated ? "Sin barrio elegido" : z.name;
 const ready = () => db.products.filter(p => E.ready(db, p));
 const diff = (price, p) => `${sgn((price - p.currentPrice) / p.currentPrice)} <span class="muted">(${fmt(p.currentPrice)})</span>`;
 const save = () => { db = API.save(db); };
@@ -389,7 +389,9 @@ function unblockCard() {
 }
 function adminTienda() {
   const sim = db.products.filter(p => p.simulated).length;
-  return `${unblockCard()}<div class="panel"><h2>Link de tu tienda</h2>
+  return `${SERVER && !db.setupDone ? `<div class="panel"><h2>¿Ya tenías todo configurado?</h2>
+      <div class="row" style="margin:0"><span class="muted">Si guardaste un respaldo antes de actualizar, cargalo y saltás la configuración.</span>
+      <label class="btn small ghost" for="restoreInput" style="cursor:pointer">Cargar respaldo</label><input type="file" id="restoreInput" accept=".json,application/json" hidden><span class="msg" id="restoreMsg" style="margin:0"></span></div></div>` : ""}${unblockCard()}<div class="panel"><h2>Link de tu tienda</h2>
       <div class="siteinput"><input type="url" id="siteUrl" value="${esc(db.company.site)}" aria-label="Link de la tienda"><button class="btn" id="scanBtn" ${busy ? "disabled" : ""}>${busy ? "Leyendo la tienda…" : db.products.length ? "Volver a leer" : "Cargar productos"}</button></div>
       <div class="note">${db.company.lastScan ? `Última lectura: ${when(db.company.lastScan)} · ${db.products.length} productos` : "El sistema recorre la tienda y carga todos los productos con su precio."}</div></div>
     ${sim && !SERVER ? `<div class="alert">Vista previa: ${sim} precios de Farmashop son de ejemplo (marcados "simulado"). En Render se leen de verdad.</div>` : ""}
@@ -461,8 +463,8 @@ function adminCompetencia() {
       return `<div class="acc ${open ? "open" : ""}"><button class="acc-head" data-acc="${key}" aria-expanded="${open}"><span class="arrow">▾</span><span class="acc-title">${esc(p.name)}</span><span class="muted">${found.length ? `${found.length} de ${db.chains.length} tiendas` : "sin competencia"}</span></button>
         ${open ? `<div class="acc-body"><div class="scroll"><table class="num"><thead><tr><th>Tienda</th><th>Producto encontrado</th><th>Coincidencia</th><th class="n">Precio</th><th class="n">Para comparar</th></tr></thead><tbody>
         ${db.chains.map(c => { const m = c.matches[p.id]; return m ? `<tr><td class="nw">${esc(c.name)}</td><td>${esc(m.name)} ${m.simulated && !SERVER ? `<span class="tag tag-sim">simulado</span>` : ""}</td>
-          <td>${m.kind === "mismo" ? `<span class="tag tag-mismo">Mismo producto</span>` : `<span class="tag tag-similar">Similar a ${esc(p.name.split(" ").slice(0, 4).join(" "))}…</span>`}</td>
-          <td class="n">${fmt(m.price)}</td><td class="n">${fmt(m.equivPrice)}${m.sizeNote ? `<div class="note">${esc(m.sizeNote)}</div>` : ""}</td></tr>` : `<tr><td class="nw">${esc(c.name)}</td><td colspan="4" class="muted">${c.status === "error" ? esc(c.note) : "No vende este producto ni uno similar"}</td></tr>`; }).join("")}
+          <td>${m.kind === "mismo" ? `<span class="tag tag-mismo">Mismo producto</span>` : m.kind === "tamano" ? `<span class="tag tag-mismo">Mismo producto, otro tamaño</span>` : `<span class="tag tag-similar">Similar a ${esc(p.name.split(" ").slice(0, 4).join(" "))}…</span>`}</td>
+          <td class="n">${fmt(m.price)}</td><td class="n">${fmt(m.equivPrice)}${m.sizeAdjusted ? ` <span class="tag tag-sim">ajustado</span>` : ""}${m.sizeNote ? `<div class="note" style="white-space:normal;max-width:240px;margin-left:auto">${esc(m.sizeNote)}</div>` : ""}</td></tr>` : `<tr><td class="nw">${esc(c.name)}</td><td colspan="4" class="muted">${c.status === "error" ? esc(c.note) : "No vende este producto ni uno similar"}</td></tr>`; }).join("")}
         </tbody></table></div></div>` : ""}</div>`; }).join("")}` : ""}
     <div class="row" style="margin-top:12px">${!db.setupDone ? `<button class="btn ghost" id="backBtn">← Tu tienda</button>` : ""}${db.lastScrape ? `<button class="btn ${db.setupDone ? "" : "ghost"}" id="nextBtn">${db.setupDone ? "Guardar cambios" : "Siguiente: precios de venta →"}</button>` : ""}<span class="err" id="stepErr"></span></div>`;
 }
@@ -480,6 +482,7 @@ function adminSugeridos() {
       <label class="choice ${!manual ? "on" : ""}"><input type="radio" name="pm" value="sugeridos" ${!manual ? "checked" : ""}><span><b>Usar los precios sugeridos</b><span class="muted">Se recalculan solos cuando cambia la competencia o un costo.</span></span></label>
       <label class="choice ${manual ? "on" : ""}"><input type="radio" name="pm" value="manual" ${manual ? "checked" : ""}><span><b>Cargar mis precios a mano</b><span class="muted">Partís del sugerido y lo cambiás donde quieras.</span></span></label>
     </div>
+    <p class="muted" style="margin:0 0 10px">Estos son los <b>precios base</b> de cada zona de Montevideo. A cada comprador que acepta las cookies se le suma después su <b>ajuste personal</b> (ver Clientes).</p>
     <div class="row" style="justify-content:space-between"><span class="muted">Tocá el título de una columna para ocultarla o mostrarla.</span><button class="btn small ghost" id="toggleAll">${showAll ? "Ocultar todos" : "Mostrar todos los productos"}</button></div>
     ${ready().map(p => {
       const key = "s-" + p.id, open = showAll || openAcc.has(key);
@@ -510,27 +513,27 @@ function adminPanel() {
       <div class="kpi"><div class="l">Clientes con perfil</div><div class="v">${consented}</div></div>
       <div class="kpi"><div class="l">Pedidos</div><div class="v">${db.orders.length}</div></div>
     </div>
-    <div class="panel"><h2>Precio por zona</h2>
+    <div class="panel"><h2>Precio base por zona de Montevideo</h2>
       <div class="row"><select id="prodSel" aria-label="Producto">${list.map(p => `<option value="${esc(p.id)}" ${p.id === selProd ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
         <span class="muted">Costo: <button class="link num" id="costLink">${fmt(E.costOf(db, prod))} ✎</button></span></div>
       <div class="scroll"><table class="num"><thead><tr><th>Zona</th><th class="n">Precio</th><th class="n">Diferencia precio actual</th><th class="n">Margen</th><th>Semáforo</th><th></th></tr></thead>
       <tbody>${E.allZones(db).map(z => { const r = E.current(db, prod, z); return `<tr><td class="nw">${esc(zoneLabel(z))}</td><td class="n"><b>${fmt(r.price)}</b>${r.manual ? ` <span class="muted">(a mano)</span>` : ""}</td>
         <td class="n">${diff(r.price, prod)}</td><td class="n">${pct(r.margin)}</td><td><span class="light l-${r.light}">${LIGHT[r.light]}</span></td>
         <td><button class="calc-btn" data-calc="${esc(prod.id)}|${z.id}" aria-label="Ver cálculo de ${esc(zoneLabel(z))}">i</button></td></tr>`; }).join("")}</tbody></table></div>
-      <div class="note">Tocá <b>i</b> para ver el cálculo. Se cierra tocando afuera.</div></div>`;
+      <div class="note">Tocá <b>i</b> para ver el cálculo. Se cierra tocando afuera. Sobre este precio base, cada comprador tiene su ajuste personal (ver Clientes).</div></div>`;
 }
 
 // ---------- Clientes ----------
 function adminClientes() {
   const list = ready();
   const ref = list[0];
-  return `<p class="lead">Perfil de cada comprador que aceptó las cookies. El índice va de 0 a 100: hasta ${db.params.umbralPerfil} paga el precio de su zona; arriba de eso, hasta +${Math.round(db.params.maxAumento * 100)}%.</p>
+  return `<p class="lead">Precio final = 1) precio de la zona → 2) + ajuste personal → 3) + ajuste del barrio, cuando elige dónde recibir. El índice va de 0 a 100: hasta ${db.params.umbralPerfil} paga el precio base; arriba de eso, hasta +${Math.round(db.params.maxAumento * 100)}%.</p>
     ${db.customers.length ? db.customers.map(c => {
       const open = openCustomer === c.id;
       const pr = c.consent ? E.profile(db, c) : null;
       return `<div class="acc ${open ? "open" : ""}"><button class="acc-head" data-cust="${esc(c.id)}" aria-expanded="${open}"><span class="arrow">▾</span>
         <span class="acc-title">${esc(c.name)} ${c.fictional ? `<span class="tag tag-gray">ficticio</span>` : ""}</span>
-        ${pr ? `<span class="bar" style="width:110px"><span style="width:${pr.index}%"></span></span><span class="num" style="min-width:150px">Índice ${pr.index} · ${pr.adj ? "+" + pct(pr.adj) : "precio de zona"}</span>` : `<span class="muted">${c.consent === false ? "Rechazó las cookies" : "Sin decidir"}</span>`}</button>
+        ${pr ? `<span class="bar" style="width:110px"><span style="width:${pr.index}%"></span></span><span class="num" style="min-width:150px">Índice ${pr.index} · ${pr.adj ? "+" + pct(pr.adj) : "precio base"}</span>` : `<span class="muted">${c.consent === false ? "Rechazó las cookies" : "Sin decidir"}</span>`}</button>
         ${open ? `<div class="acc-body">${pr ? customerDetail(c, pr, ref) : `<p class="muted">No hay datos: sin consentimiento no se recolecta nada y no ve precios.</p>`}</div>` : ""}</div>`; }).join("")
       : `<div class="panel"><p class="muted">Todavía no hay clientes. Entrá a la tienda de prueba y aceptá las cookies.</p></div>`}`;
 }
@@ -550,12 +553,12 @@ function customerDetail(c, pr, ref) {
   return `<div class="row" style="align-items:flex-start;gap:24px">
     <div style="flex:1.2;min-width:260px"><h2 class="muted" style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 8px">Cómo se calcula su índice</h2>
       <div class="factors num">${E.FACTORS.map(f => `<span>${f.label}</span><span class="muted">peso ${f.w}</span><span class="bar"><span style="width:${Math.round(pr.scores[f.k] * 100)}%"></span></span><span>${Math.round(pr.scores[f.k] * 100)}</span>`).join("")}</div>
-      <p style="margin:10px 0 0"><b>Índice ${pr.index}</b> → ajuste personal ${pr.adj ? "+" + pct(pr.adj) : "0% (paga el precio de su zona)"}</p></div>
+      <p style="margin:10px 0 0"><b>Índice ${pr.index}</b> → ajuste personal ${pr.adj ? "+" + pct(pr.adj) : "0% (paga el precio base de su zona)"}</p></div>
     <div style="flex:1;min-width:240px"><h2 class="muted" style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 8px">Datos recolectados</h2>
       <dl class="dl">${items.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div></div>
-    ${ref ? `<div class="scroll" style="margin-top:12px"><table class="num"><thead><tr><th>Producto</th><th class="n">Precio de su zona</th><th class="n">Su precio</th><th></th></tr></thead><tbody>
-    ${ready().map(p => { const r = E.personalPrice(db, p, E.findZone(db, s.zonaEntrega), c); return `<tr><td>${esc(p.name)}</td><td class="n">${fmt(r.price)}</td><td class="n"><b>${fmt(r.final)}</b></td><td>${r.locked ? `<span class="tag tag-gray">precio fijado en su primera compra</span>` : ""}</td></tr>`; }).join("")}
-    </tbody></table></div>` : ""}`;
+    ${ref ? (() => { const kz = E.findZone(db, E.knownZone(db, c)), bar = db.barrios.find(b => b.name === s.barrio); return `<div class="scroll" style="margin-top:12px"><table class="num"><thead><tr><th>Producto</th><th class="n">1 · Precio de la zona (${esc(kz.estimated ? "sin barrio" : kz.name)})</th><th class="n">2 · Ajuste personal</th><th class="n">3 · Ajuste del barrio (${esc(bar ? bar.name : "todavía no eligió")})</th><th class="n">Precio final</th><th></th></tr></thead><tbody>
+    ${ready().map(p => { const r = E.personalPrice(db, p, kz, c, bar || null); return `<tr><td>${esc(p.name)}</td><td class="n">${fmt(r.price)}</td><td class="n">${r.locked ? "—" : pr.adj ? "+" + pct(pr.adj) : "0%"}</td><td class="n">${r.locked || !bar ? "—" : (bar.ajuste > 0 ? "+" : "") + bar.ajuste + "%"}</td><td class="n"><b>${fmt(r.final)}</b></td><td>${r.locked ? `<span class="tag tag-gray">precio fijado en su primera compra</span>` : ""}</td></tr>`; }).join("")}
+    </tbody></table></div>`; })() : ""}`;
 }
 
 // ---------- Exportar ----------
@@ -592,19 +595,32 @@ function adminDatos() {
       <div class="acc-body" ${open ? "" : "hidden"}>
         <div class="row"><label>Factor <input type="number" step="0.01" id="zf-${i}" data-zf="${i}" value="${z.factor}"></label>
           <span class="muted">Compiten:</span>${db.chains.map(c => `<label class="chk"><input type="checkbox" data-zc="${i}" value="${esc(c.name)}" ${z.chains.includes(c.name) ? "checked" : ""}>${esc(c.name)}</label>`).join("")}</div>
-        ${bs.length ? `<div class="scroll"><table><thead><tr><th>Barrio</th><th>Mover a</th></tr></thead><tbody>${bs.map(({ b, bi }) => `<tr><td>${esc(b.name)}</td><td><select id="bz-${bi}" data-bz="${bi}" aria-label="Zona de ${esc(b.name)}">${db.zones.filter(x => x.dept === "Montevideo").map(x => `<option value="${x.id}" ${x.id === b.zoneId ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Sin barrios: esta zona es solo para retiro en sucursal.</p>`}
+        ${bs.length ? `<div class="scroll"><table><thead><tr><th>Barrio</th><th class="n">Ajuste del barrio (%)</th><th>Mover a</th></tr></thead><tbody>${bs.map(({ b, bi }) => `<tr><td>${esc(b.name)}</td><td class="n"><input type="number" step="1" min="-3" max="3" id="ba-${bi}" data-ba="${bi}" value="${b.ajuste || 0}" aria-label="Ajuste de ${esc(b.name)}"></td><td><select id="bz-${bi}" data-bz="${bi}" aria-label="Zona de ${esc(b.name)}">${db.zones.filter(x => x.dept === "Montevideo").map(x => `<option value="${x.id}" ${x.id === b.zoneId ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Sin barrios: esta zona es solo para retiro en sucursal.</p>`}
         ${ps.length ? `<p class="muted" style="margin-bottom:0">Sucursales: ${ps.map(x => esc(x.s.name)).join(", ")}</p>` : ""}
       </div></div>`; }).join("")}
-    <div class="row" style="margin-top:12px"><button class="btn" id="saveBtn">Guardar cambios</button><button class="btn ghost" id="resetBtn">Restablecer el ejemplo</button><span class="err" id="stepErr"></span></div>`;
+    <div class="row" style="margin-top:12px"><button class="btn" id="saveBtn">Guardar cambios</button><button class="btn ghost" id="resetBtn">Restablecer el ejemplo</button><span class="err" id="stepErr"></span></div>
+    ${SERVER ? `<div class="panel" style="margin-top:16px"><h2>Respaldo</h2>
+      <p class="muted" style="margin-top:0">Render borra los datos cada vez que se actualiza o se reinicia. Antes de actualizar, guardá un respaldo; después, cargalo y queda todo como estaba.</p>
+      <div class="row"><a class="btn ghost" href="/api/admin/backup">Guardar respaldo</a>
+        <label class="btn ghost" for="restoreInput" style="cursor:pointer">Cargar respaldo</label><input type="file" id="restoreInput" accept=".json,application/json" hidden>
+        <span class="msg" id="restoreMsg" style="margin:0"></span></div></div>` : ""}`;
 }
 
 function adminComo() {
   return `<div class="panel"><h2>Cómo viajan los datos</h2><div class="flow">
       <div class="step"><b>1 · Tiendas</b>Con el link de la tienda se cargan todos sus productos. Con los links de la competencia se buscan los mismos productos o similares.</div>
-      <div class="step"><b>2 · Precio por zona</b>Piso, competencia de la zona, factor y tope. El equipo acepta el sugerido o carga el suyo.</div>
+      <div class="step"><b>2 · Precio base por zona</b>Los 62 barrios de Montevideo se agrupan en 4 zonas. Cada zona tiene su precio base: piso, competencia, factor y tope.</div>
       <div class="step"><b>3 · Perfil del comprador</b>Si acepta las cookies, se junta lo que permite el navegador y su historial en la tienda, y se calcula un índice de 0 a 100.</div>
-      <div class="step"><b>4 · Precio personal</b>Precio de su zona más un ajuste según su índice. Si recompra un producto, mantiene el precio de su primera compra.</div>
+      <div class="step"><b>4 · Precio final</b>Precio de la zona + ajuste según su índice. Al pagar, elige su barrio y el precio se ajusta un poco más. Si recompra, mantiene el precio de su primera compra.</div>
     </div></div>
+    <div class="panel"><h2>Cómo se arma el precio</h2><div class="formula">Solo Montevideo: envío a los 62 barrios y retiro en sucursales de Montevideo.
+Cada barrio y cada sucursal pertenece a una de 4 zonas: Costa Este, Costa, Centro, Oeste y Norte.
+
+1. Precio base de la zona = máx(Piso, Competencia de la zona × Factor, dentro del tope)
+2. Ajuste personal        = según el índice del comprador (0% hasta ${db.params.umbralPerfil}, hasta +${Math.round(db.params.maxAumento * 100)}% con 100)
+3. Ajuste del barrio      = de −3% a +3%, cuando elige su barrio de entrega al pagar
+   Precio final           = Precio base × (1 + Ajuste personal) × (1 + Ajuste del barrio), en 9
+   Si recompra un producto: mismo precio que la primera vez.</div></div>
     <div class="panel"><h2>Qué se puede saber del comprador (con consentimiento)</h2><div class="formula">Zona de entrega y sucursal de retiro · departamento por IP · ubicación del momento (con permiso)
 Zonas donde abre la tienda en distintas visitas · compras en esta tienda y gasto promedio
 Productos que mira y su nivel de precio · carritos abandonados · visitas y horario
@@ -642,6 +658,15 @@ function bindAdmin() {
   $$("[data-go]").forEach(a => a.onclick = () => go(a.dataset.go));
   $$("[data-acc]").forEach(b => b.onclick = () => { const k = b.dataset.acc; if (showAll) { showAll = false; $$("[data-acc]").forEach(x => openAcc.add(x.dataset.acc)); } openAcc.has(k) ? openAcc.delete(k) : openAcc.add(k); render(); });
   const ta = $("#toggleAll"); if (ta) ta.onclick = () => { showAll = !showAll; if (!showAll) openAcc.clear(); render(); };
+  const ri = $("#restoreInput");
+  if (ri) ri.onchange = async () => {
+    const f = ri.files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      db = await Remote.call("/api/admin/restore", "POST", data); Remote.db = db;
+      adminTab = db.setupDone ? "panel" : "tienda"; flash = "Respaldo cargado. Todo quedó como estaba."; render();
+    } catch (e) { $("#restoreMsg").textContent = e instanceof SyntaxError ? "Ese archivo no es un respaldo de PrecioZona." : e.message; }
+  };
   const back = $("#backBtn"); if (back) back.onclick = () => go(adminTab === "competencia" ? "tienda" : "competencia");
 
   if (adminTab === "tienda") {
@@ -745,6 +770,7 @@ function bindAdmin() {
       $$("[data-zf]").forEach(el => { db.zones[el.dataset.zf].factor = n(el.value) || db.zones[el.dataset.zf].factor; });
       db.zones.forEach((z, i) => { const boxes = $$(`[data-zc="${i}"]`); if (boxes.length) z.chains = boxes.filter(x => x.checked).map(x => x.value); });
       $$("[data-bz]").forEach(el => { db.barrios[el.dataset.bz].zoneId = el.value; });
+      for (const el of $$("[data-ba]")) { const v = Number(el.value); if (!Number.isFinite(v) || v < -3 || v > 3) { $("#stepErr").textContent = "El ajuste de cada barrio tiene que estar entre −3% y +3%."; el.focus(); return; } db.barrios[el.dataset.ba].ajuste = v; }
       save(); flash = "Guardado. Los precios se recalcularon."; render();
     };
     $("#resetBtn").onclick = () => { const s = E.clone(E.SEED); s.customers = E.clone(DEMO_CUSTOMERS); db = API.save(s); Object.keys(cart).forEach(k => delete cart[k]); go("tienda"); flash = "Se restableció el ejemplo. Empieza de nuevo la configuración."; render(); };
@@ -775,28 +801,27 @@ function collectSignals(c) {
     hora: new Date().getHours(), visitas: (c.signals.visitas || 0) + 1
   });
 }
-function myZone() {
-  if (shipLoc.startsWith("b:")) return db.barrios[+shipLoc.slice(2)].zoneId;
-  if (shipLoc.startsWith("p:")) return (db.pickups.find(p => "p:" + p.id === shipLoc) || {}).zoneId;
-  return me().signals.zonaEntrega || "estimado";
+// Antes de elegir barrio: zona conocida de la persona. Al elegir barrio o sucursal en el carrito: su zona + ajuste del barrio.
+function locPrice(p) { const li = E.locInfo(db, shipLoc); return E.personalPrice(db, p, E.findZone(db, li ? li.zoneId : E.knownZone(db, me())), me(), li ? li.barrio : null); }
+const priceFor = p => E.personalPrice(db, p, E.findZone(db, E.knownZone(db, me())), me());
+function locOptions() {
+  return shipMode === "envio"
+    ? `<option value="">Elegí tu barrio</option>` + db.barrios.map((b, i) => ({ b, i })).sort((x, y) => x.b.name.localeCompare(y.b.name, "es")).map(({ b, i }) => `<option value="b:${i}">${esc(b.name)}</option>`).join("")
+    : `<option value="">Elegí una sucursal</option>` + db.pickups.map(p => `<option value="p:${p.id}">${esc(p.name)}</option>`).join("");
 }
-const priceFor = p => E.personalPrice(db, p, E.findZone(db, myZone()), me());
 
 function viewTienda() {
   if (!db) return `<div class="gut"><div class="wrap page"><div class="alert">Para usar el simulador, primero iniciá sesión en el <a href="#admin">back-office</a>.</div></div></div>`;
   if (!db.setupDone || !ready().length) return `<div class="gut"><div class="wrap page"><div class="alert">Primero terminá la configuración en el back-office.</div></div></div>`;
   const c = me(), ok = c.consent === true;
   const nCart = Object.values(cart).reduce((a, b) => a + b, 0);
-  const locOpts = (shipMode === "envio"
-    ? `<option value="">Elegí tu barrio</option>` + db.barrios.map((b, i) => ({ b, i })).sort((x, y) => x.b.name.localeCompare(y.b.name, "es")).map(({ b, i }) => `<option value="b:${i}">${esc(b.name)}</option>`).join("")
-    : `<option value="">Elegí una sucursal</option>` + db.pickups.map(p => `<option value="p:${p.id}">${esc(p.name)}</option>`).join(""));
+  const kz = E.findZone(db, E.knownZone(db, c));
   return `<div class="demo-bar gut"><div class="wrap"><b>Simulador</b><label for="asSel">Navegar como</label>
       <select id="asSel">${db.customers.map(x => `<option value="${esc(x.id)}" ${x.id === actingAs ? "selected" : ""}>${esc(x.name)}${x.fictional ? " (ficticio)" : ""}</option>`).join("")}</select>
-      <button id="resetCookies">Borrar mis cookies</button><span style="opacity:.75">Así se vería la web de ${esc(db.company.name)} con el script de PrecioZona.</span></div></div>
+      <button id="resetCookies">Borrar mis cookies</button><span style="opacity:.75">${ok ? `Zona usada: ${esc(kz.estimated ? "sin barrio elegido" : kz.name)}. El barrio se elige al pagar.` : `Así se vería la web de ${esc(db.company.name)} con el script de PrecioZona.`}</span></div></div>
     <div class="gut"><div class="wrap page" style="padding-top:0">
       <div class="shop-head"><h1>Cremas corporales</h1><div class="sp"></div>
-        <div class="where"><span class="seg" id="shipSeg"><button data-ship="envio" class="${shipMode === "envio" ? "on" : ""}">Envío</button><button data-ship="retiro" class="${shipMode === "retiro" ? "on" : ""}">Retiro</button></span>
-          <select id="shipSel" aria-label="Barrio o sucursal">${locOpts}</select></div>
+        <span class="muted">Envío gratis en Montevideo o retiro en sucursal</span>
         <button class="btn ghost cartbtn" id="cartBtn">Carrito ${nCart ? `<b>${nCart}</b>` : ""}</button></div>
       ${!ok ? `<div class="alert">Aceptá las cookies para ver los precios y poder comprar. <button class="link" id="openCookie">Ver el aviso</button></div>` : ""}
       <div class="cards">${ready().map(p => { const r = priceFor(p); return `<div class="pcard">
@@ -810,15 +835,20 @@ function viewTienda() {
 function viewCart() {
   const c = me(), ok = c.consent === true;
   const items = Object.entries(cart).filter(([, q]) => q > 0).map(([id, q]) => ({ p: db.products.find(x => x.id === id), q }));
-  const total = ok ? items.reduce((a, { p, q }) => a + priceFor(p).final * q, 0) : 0;
+  const li = E.locInfo(db, shipLoc);
+  const total = ok ? items.reduce((a, { p, q }) => a + locPrice(p).final * q, 0) : 0;
+  const adj = li && li.barrio && li.barrio.ajuste ? li.barrio.ajuste : 0;
   if (lastOrder) return `<div class="drawer" role="dialog" aria-label="Pedido confirmado"><h2>Pedido confirmado</h2><p>Número <b>${esc(lastOrder.id)}</b> · total <b>${fmt(lastOrder.total)}</b></p>
     <p class="muted">Si volvés a comprar estos productos, vas a pagar el mismo precio.</p><button class="btn full" id="closeCart">Seguir comprando</button></div>`;
   return `<div class="drawer" role="dialog" aria-label="Carrito"><h2>Carrito</h2>
-    ${items.length ? items.map(({ p, q }) => `<div class="line"><span>${esc(p.name)} × ${q}</span><span class="num">${ok ? fmt(priceFor(p).final * q) : "—"}</span></div>`).join("") : `<p class="muted">El carrito está vacío.</p>`}
+    ${items.length ? items.map(({ p, q }) => `<div class="line"><span>${esc(p.name)} × ${q}</span><span class="num">${ok ? fmt(locPrice(p).final * q) : "—"}</span></div>`).join("") : `<p class="muted">El carrito está vacío.</p>`}
     ${items.length && ok ? `<div class="line"><b>Total</b><b class="num">${fmt(total)}</b></div>` : ""}
-    ${checkoutStep && ok ? `<label class="muted" for="paySel" style="display:block;margin-top:14px">Medio de pago</label>
+    ${checkoutStep && ok ? `<p class="muted" style="margin:14px 0 6px">¿Cómo lo recibís?</p>
+      <span class="seg" id="shipSeg"><button data-ship="envio" class="${shipMode === "envio" ? "on" : ""}">Envío a domicilio</button><button data-ship="retiro" class="${shipMode === "retiro" ? "on" : ""}">Retiro en sucursal</button></span>
+      <select id="shipSel" aria-label="Barrio o sucursal" style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--surface)">${locOptions()}</select>
+      ${li ? `<p class="note">${li.barrio ? `Precio recalculado para ${esc(li.label)} (zona ${esc(E.findZone(db, li.zoneId).name)})${adj ? `: ajuste del barrio ${adj > 0 ? "+" : ""}${adj}%` : ""}.` : `Retiro en ${esc(li.label)} (zona ${esc(E.findZone(db, li.zoneId).name)}).`}</p>` : ""}
+      <label class="muted" for="paySel" style="display:block;margin-top:12px">Medio de pago</label>
       <select id="paySel" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--surface)">${[["credito", "Tarjeta de crédito"], ["debito", "Tarjeta de débito"], ["transferencia", "Transferencia"], ["efectivo", "Efectivo en sucursal"]].map(([v, l]) => `<option value="${v}" ${v === payMethod ? "selected" : ""}>${l}</option>`).join("")}</select>
-      <p class="muted">${shipLoc ? `Entrega: ${esc(shipLoc.startsWith("b:") ? db.barrios[+shipLoc.slice(2)].name : db.pickups.find(p => "p:" + p.id === shipLoc).name)}` : "Elegí barrio o sucursal arriba antes de pagar."}</p>
       <div class="err" id="payErr"></div>` : ""}
     <div class="actions">${items.length ? `<button class="btn" id="checkoutBtn">${checkoutStep && ok ? "Pagar" : "Finalizar compra"}</button>` : ""}<button class="btn ghost" id="closeCart">Cerrar</button></div></div>`;
 }
@@ -844,7 +874,7 @@ function bindTienda() {
   $("#resetCookies").onclick = () => { const x = me(); x.consent = null; if (!x.fictional) x.signals = { visitas: 0, vistos: [], carritosAbandonados: 0 }; x.locks = x.fictional ? x.locks : {}; save(); cookieOpen = true; cookieReason = ""; render(); };
   const oc = $("#openCookie"); if (oc) oc.onclick = () => { cookieOpen = true; render(); };
   $$("[data-ship]").forEach(b => b.onclick = () => { shipMode = b.dataset.ship; shipLoc = ""; render(); });
-  const ss = $("#shipSel"); ss.value = shipLoc; ss.onchange = () => { shipLoc = ss.value; if (me().consent) { me().signals.zonaEntrega = myZone(); save(); } render(); };
+  const ss = $("#shipSel"); if (ss) { ss.value = shipLoc; ss.onchange = () => { shipLoc = ss.value; render(); }; }
   $$("[data-add]").forEach(b => b.onclick = () => { const id = b.dataset.add; cart[id] = (cart[id] || 0) + 1; if (c.consent) { const v = c.signals.vistos || (c.signals.vistos = []); if (!v.includes(id)) v.push(id); save(); } lastOrder = null; render(); });
   $("#cartBtn").onclick = () => { cartOpen = true; lastOrder = null; render(); };
   const cc = $("#closeCart"); if (cc) cc.onclick = () => {
@@ -856,18 +886,19 @@ function bindTienda() {
     const x = me();
     if (!x.consent) { cookieOpen = true; cookieReason = "Para comprar necesitamos calcular tu precio, y para eso tenés que aceptar las cookies."; render(); return; }
     if (!checkoutStep) { checkoutStep = true; render(); return; }
-    if (!shipLoc && !x.signals.zonaEntrega) { $("#payErr").textContent = "Elegí tu barrio o una sucursal arriba."; return; }
+    if (!shipLoc) { $("#payErr").textContent = "Elegí tu barrio o una sucursal."; return; }
     const items = Object.entries(cart).filter(([, q]) => q > 0);
     let total = 0;
-    items.forEach(([id, q]) => { const p = db.products.find(y => y.id === id), r = priceFor(p); total += r.final * q; x.locks[id] = x.locks[id] || r.final; });
-    x.signals.pago = payMethod; x.signals.zonaEntrega = myZone();
+    items.forEach(([id, q]) => { const p = db.products.find(y => y.id === id), r = locPrice(p); total += r.final * q; x.locks[id] = x.locks[id] || r.final; });
+    const li = E.locInfo(db, shipLoc);
+    x.signals.pago = payMethod; x.signals.zonaEntrega = li.zoneId; if (li.barrio) x.signals.barrio = li.label;
     const order = { id: "PZ-" + (1001 + db.orders.length), date: new Date().toISOString(), customerId: x.id, total, items: items.map(([id, q]) => ({ id, q })) };
     db.orders.unshift(order); save();
     Object.keys(cart).forEach(k => delete cart[k]); checkoutStep = false; lastOrder = order; render();
   };
   if (cookieOpen) {
     $("#termsBtn").onclick = () => { termsOpen = !termsOpen; render(); };
-    $("#acceptCk").onclick = () => { const x = me(); x.consent = true; x.consentDate = new Date().toISOString(); if (!x.fictional) collectSignals(x); if (shipLoc) x.signals.zonaEntrega = myZone(); save(); cookieOpen = false; cookieReason = ""; render(); };
+    $("#acceptCk").onclick = () => { const x = me(); x.consent = true; x.consentDate = new Date().toISOString(); if (!x.fictional) collectSignals(x); save(); cookieOpen = false; cookieReason = ""; render(); };
     $("#rejectCk").onclick = () => { const x = me(); x.consent = false; save(); cookieOpen = false; cookieReason = ""; render(); };
   }
 }
