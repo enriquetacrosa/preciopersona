@@ -595,16 +595,27 @@ function customerDetail(c, pr, ref) {
 function adminExportar() {
   const rows = E.exportRows(db), tsv = rows.map(r => r.join("\t")).join("\n");
   const first = ready()[0];
-  return `<div class="panel"><h2>1 · Llevar los precios a Excel o Google Sheets</h2>
+  const origin = SERVER ? location.origin : "https://preciopersona.onrender.com";
+  const code = `<script src="${origin}/preciozona.js"><\/script>`;
+  const site = db.company && db.company.site;
+  return `<p class="lead" style="margin-top:0">Hay dos formas de llevar estos precios a tu tienda online.</p>
+    <div class="panel"><h2>Opción 1 · Conexión directa (automática, recomendada)</h2>
+      <p style="margin-top:0">Tu tienda se conecta con PrecioZona y los precios se actualizan solos. No hay que exportar ni cargar nada a mano.</p>
+      <ol>
+        <li><b>Copiá el código de conexión</b> con el botón de abajo.</li>
+        <li><b>Pasáselo a quien maneja tu página web</b> para que lo pegue <b>una sola vez</b>.</li>
+        <li><b>Listo.</b> Cuando alguien entra a tu tienda, aparece el cartel de cookies y la tienda le pide a PrecioZona el precio para esa persona. Si cambiás un precio acá, tu tienda lo muestra al recargar.</li>
+      </ol>
+      <div class="row"><button class="btn" id="copyCode">Copiar código de conexión</button>${site ? `<a class="btn ghost" href="${esc(site)}" target="_blank" rel="noopener">Abrir mi tienda</a>` : ""}<span class="muted" id="codeMsg"></span></div>
+      ${site ? `<p class="note">Para probarlo: cambiá un precio en <b>3 · Precios de venta</b>, guardá y recargá tu tienda.</p>` : ""}
+      <details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Ver el código (para quien maneja tu web)</summary><div class="api" style="margin-top:8px">${esc(code)}</div></details>
+      <textarea id="codeArea" readonly hidden aria-label="Código de conexión">${esc(code)}</textarea></div>
+    <div class="panel"><h2>Opción 2 · Planilla (manual)</h2>
+      <p style="margin-top:0">Para tiendas que no pueden agregar el código, o para cargar los precios en otro lado (Mercado Libre, el local). Descargás la planilla y cargás los precios a mano; cada vez que cambien hay que volver a hacerlo.</p>
       <div class="row">${SERVER ? `<a class="btn" href="/api/admin/export.csv">Descargar planilla</a>` : ""}<button class="btn ${SERVER ? "ghost" : ""}" id="copyBtn">Copiar tabla</button><span class="muted" id="copyMsg">${SERVER ? "La planilla se abre en Excel. En Google Sheets: Archivo → Importar." : "Pegala en Excel o Google Sheets. En Render también se puede descargar el archivo."}</span></div>
       <div class="scroll"><table class="num"><thead><tr>${rows[0].map((h, i) => i === 1 ? "" : `<th class="${i > 1 ? "n" : ""}">${esc(h)}</th>`).join("")}</tr></thead>
       <tbody>${rows.slice(1).map(r => `<tr>${r.map((v, i) => i === 1 ? "" : `<td class="${i > 1 ? "n" : ""}">${i > 1 ? fmt(v) : esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-      <textarea class="copy" id="copyArea" readonly hidden aria-label="Tabla para copiar">${esc(tsv)}</textarea></div>
-    <div class="panel"><h2>2 · Conectar directo con la web de la tienda</h2>
-      <p class="muted" style="margin-top:0">La web de la tienda agrega un script de PrecioZona. El script muestra el cartel de cookies, junta los datos del comprador y le pide a este back-office el precio para esa persona. No hay que cargar nada a mano: el precio aparece solo en la tienda.</p>
-      <div class="api">&lt;script src="https://TU-SITIO.onrender.com/preciozona.js"&gt;&lt;/script&gt;</div>
-      ${first ? `<div class="api" style="margin-top:8px">GET /api/precio?producto=${esc(first.id)}&amp;cliente=lucia → { "precio": ${E.personalPrice(db, first, E.findZone(db, "costa-este"), db.customers.find(c => c.id === "lucia")).final || "…"} }</div>` : ""}
-      <p class="muted">Para probarla: pedime la tienda de prueba aparte. Es una página que se conecta con tu sitio de Render como si fuera la web de un cliente.</p></div>`;
+      <textarea class="copy" id="copyArea" readonly hidden aria-label="Tabla para copiar">${esc(tsv)}</textarea></div>`;
 }
 
 // ---------- Configuración ----------
@@ -785,6 +796,10 @@ function bindAdmin() {
     $("#costLink").onclick = () => { focusAfter = "#pc-" + db.products.findIndex(p => p.id === selProd); go("tienda"); };
   }
   if (adminTab === "clientes") $$("[data-cust]").forEach(b => b.onclick = () => { openCustomer = openCustomer === b.dataset.cust ? null : b.dataset.cust; render(); });
+  if (adminTab === "exportar") $("#copyCode").onclick = async () => {
+    try { await navigator.clipboard.writeText($("#codeArea").value); $("#codeMsg").textContent = "Código copiado."; }
+    catch (e) { $("#codeMsg").textContent = "No se pudo copiar: abrí \"Ver el código\" y copialo a mano."; }
+  };
   if (adminTab === "exportar") $("#copyBtn").onclick = async () => {
     try { await navigator.clipboard.writeText($("#copyArea").value); $("#copyMsg").textContent = "Copiado. Pegalo en Excel o Google Sheets."; }
     catch { const t = $("#copyArea"); t.hidden = false; t.focus(); t.select(); $("#copyMsg").textContent = "Seleccioné la tabla: copiala con Ctrl+C."; }
