@@ -350,7 +350,15 @@ let wizard = false; const inSetup = () => !db.setupDone || wizard;
 let adminOk = false, adminTab = "panel", selProd = null, priceMode = null, busy = false, flash = "", focusAfter = null;
 const openAcc = new Set();             // acordeones abiertos
 const hiddenCols = new Set();          // columnas ocultas en Precios de venta
-let showAll = false, openCustomer = null;
+let showAll = false, openCustomer = null, plat = "";
+// Dónde pegar el código según la plataforma de la tienda
+const PLATS = [
+  ["tiendanube", "Tiendanube", ["Entrá al panel de administración de tu Tiendanube.", "Andá a <b>Configuraciones</b> → <b>Configuraciones avanzadas</b> → <b>Códigos externos</b>.", "Pegá el código de conexión en el campo de códigos (o de seguimiento) y tocá <b>Guardar</b>."]],
+  ["shopify", "Shopify", ["Entrá al panel de Shopify y andá a <b>Tienda online</b> → <b>Temas</b>.", "En tu tema actual tocá <b>…</b> → <b>Editar código</b>.", "Abrí el archivo <b>theme.liquid</b> (carpeta Layout).", "Pegá el código justo antes de la línea <b>&lt;/body&gt;</b> y tocá <b>Guardar</b>."]],
+  ["wordpress", "WordPress / WooCommerce", ["En el escritorio de WordPress andá a <b>Plugins</b> → <b>Añadir nuevo</b>.", "Buscá e instalá un plugin para insertar código en el encabezado y pie de página (por ejemplo <b>WPCode</b>) y activalo.", "Entrá al plugin, buscá la opción <b>Pie de página</b> (Footer) y pegá el código.", "Tocá <b>Guardar cambios</b>."]],
+  ["wix", "Wix", ["Entrá al panel de tu sitio de Wix y andá a <b>Configuración</b>.", "En <b>Avanzado</b>, tocá <b>Código personalizado</b> → <b>Agregar código</b>.", "Pegá el código, elegí <b>Todas las páginas</b> y la ubicación <b>Body - final</b>.", "Tocá <b>Aplicar</b>."]],
+  ["otra", "Otra / la hizo un programador", ["Tocá <b>Copiar código de conexión</b>.", "Mandáselo a quien hizo o maneja tu página web.", "Pedile que lo pegue en todas las páginas, antes de la línea <b>&lt;/body&gt;</b>. Le lleva unos minutos."]],
+];
 const LIGHT = { verde: "Verde", amarillo: "Amarillo", rojo: "Rojo" };
 const lightHtml = ev => `<span class="light l-${ev.light}">${LIGHT[ev.light]}</span>${ev.reason ? `<div class="why">${esc(ev.reason)}</div>` : ""}`;
 const LIGHT_TXT = { verde: "Competitivo y con margen", amarillo: "Más caro que la competencia, o la competencia vende por debajo de tu piso", rojo: "Por debajo del piso: perdés margen" };
@@ -603,7 +611,9 @@ function adminExportar() {
       <p style="margin-top:0">Tu tienda se conecta con PrecioZona y los precios se actualizan solos. No hay que exportar ni cargar nada a mano.</p>
       <ol>
         <li><b>Copiá el código de conexión</b> con el botón de abajo.</li>
-        <li><b>Pasáselo a quien maneja tu página web</b> para que lo pegue <b>una sola vez</b>.</li>
+        <li><b>Pegalo en tu tienda una sola vez.</b> Elegí con qué está hecha tu tienda y te mostramos dónde va:
+          <div class="seg" id="platSeg" style="flex-wrap:wrap;margin:8px 0">${PLATS.map(([k, n]) => `<button data-plat="${k}" class="${plat === k ? "on" : ""}">${n}</button>`).join("")}</div>
+          ${plat ? (() => { const P = PLATS.find(x => x[0] === plat); return `<div class="panel" style="margin:4px 0 8px;padding:12px 16px"><b>Cómo conectarla en ${P[1]}</b><ol style="margin:6px 0 0">${P[2].map(t => `<li>${t}</li>`).join("")}</ol><p class="note" style="margin:8px 0 0">Los nombres de los menús pueden cambiar un poco según la versión de la plataforma.</p></div>`; })() : ""}</li>
         <li><b>Listo.</b> Cuando alguien entra a tu tienda, aparece el cartel de cookies y la tienda le pide a PrecioZona el precio para esa persona. Si cambiás un precio acá, tu tienda lo muestra al recargar.</li>
       </ol>
       <div class="row"><button class="btn" id="copyCode">Copiar código de conexión</button>${site ? `<a class="btn ghost" href="${esc(site)}" target="_blank" rel="noopener">Abrir mi tienda</a>` : ""}<span class="muted" id="codeMsg"></span></div>
@@ -796,6 +806,7 @@ function bindAdmin() {
     $("#costLink").onclick = () => { focusAfter = "#pc-" + db.products.findIndex(p => p.id === selProd); go("tienda"); };
   }
   if (adminTab === "clientes") $$("[data-cust]").forEach(b => b.onclick = () => { openCustomer = openCustomer === b.dataset.cust ? null : b.dataset.cust; render(); });
+  if (adminTab === "exportar") $("#platSeg").onclick = e => { const b = e.target.closest("[data-plat]"); if (b) { plat = plat === b.dataset.plat ? "" : b.dataset.plat; render(); } };
   if (adminTab === "exportar") $("#copyCode").onclick = async () => {
     try { await navigator.clipboard.writeText($("#codeArea").value); $("#codeMsg").textContent = "Código copiado."; }
     catch (e) { $("#codeMsg").textContent = "No se pudo copiar: abrí \"Ver el código\" y copialo a mano."; }
